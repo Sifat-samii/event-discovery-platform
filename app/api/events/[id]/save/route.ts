@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { logApiError } from "@/lib/utils/logger";
 
 export async function POST(
   request: NextRequest,
@@ -29,8 +30,19 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const { error: reminderError } = await supabase.from("reminders").upsert({
+      user_id: user.id,
+      event_id: id,
+      reminder_24h: true,
+      reminder_3h: false,
+    });
+    if (reminderError) {
+      console.error("Failed to initialize reminder after save", reminderError.message);
+    }
+
     return NextResponse.json({ success: true, saved: true });
   } catch (error: any) {
+    logApiError("/api/events/[id]/save POST", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }
@@ -63,8 +75,15 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await supabase
+      .from("reminders")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("event_id", id);
+
     return NextResponse.json({ success: true, saved: false });
   } catch (error: any) {
+    logApiError("/api/events/[id]/save DELETE", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

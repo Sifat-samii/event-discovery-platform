@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 // Event queries
-export async function getEvents(filters?: {
+export type EventFilters = {
   category?: string;
   subcategory?: string;
   area?: string;
@@ -10,12 +10,38 @@ export async function getEvents(filters?: {
   priceType?: "free" | "paid";
   timeSlot?: "morning" | "afternoon" | "evening" | "night";
   thisWeekend?: boolean;
+  verifiedOnly?: boolean;
   search?: string;
   sort?: "soonest" | "trending" | "recent";
   page?: number;
   limit?: number;
-}) {
+};
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+async function resolveIdBySlug(
+  table: "event_categories" | "event_subcategories" | "event_areas",
+  candidate?: string
+) {
+  if (!candidate) return undefined;
+  if (isUuid(candidate)) return candidate;
+
   const supabase = await createClient();
+  const { data } = await supabase
+    .from(table)
+    .select("id")
+    .eq("slug", candidate)
+    .maybeSingle();
+  return data?.id;
+}
+
+export async function getEvents(filters?: EventFilters) {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
   let query = supabase
     .from("events")
     .select(`
@@ -25,18 +51,25 @@ export async function getEvents(filters?: {
       organizer:organizers(*),
       area:event_areas(*),
       tags:event_tags_junction(event_tags(*))
-    `)
-    .eq("status", "published");
+    `, { count: "exact" })
+    .eq("status", "published")
+    .gte("end_date", now);
 
   // Apply filters
   if (filters?.category) {
-    query = query.eq("category_id", filters.category);
+    const categoryId = await resolveIdBySlug("event_categories", filters.category);
+    if (categoryId) query = query.eq("category_id", categoryId);
   }
   if (filters?.subcategory) {
-    query = query.eq("subcategory_id", filters.subcategory);
+    const subcategoryId = await resolveIdBySlug(
+      "event_subcategories",
+      filters.subcategory
+    );
+    if (subcategoryId) query = query.eq("subcategory_id", subcategoryId);
   }
   if (filters?.area) {
-    query = query.eq("area_id", filters.area);
+    const areaId = await resolveIdBySlug("event_areas", filters.area);
+    if (areaId) query = query.eq("area_id", areaId);
   }
   if (filters?.dateFrom) {
     query = query.gte("start_date", filters.dateFrom);
@@ -46,6 +79,17 @@ export async function getEvents(filters?: {
   }
   if (filters?.priceType) {
     query = query.eq("price_type", filters.priceType);
+  }
+  if (filters?.timeSlot) {
+    if (filters.timeSlot === "morning") {
+      query = query.gte("start_time", "06:00:00").lt("start_time", "12:00:00");
+    } else if (filters.timeSlot === "afternoon") {
+      query = query.gte("start_time", "12:00:00").lt("start_time", "17:00:00");
+    } else if (filters.timeSlot === "evening") {
+      query = query.gte("start_time", "17:00:00").lt("start_time", "21:00:00");
+    } else if (filters.timeSlot === "night") {
+      query = query.or("start_time.gte.21:00:00,start_time.lt.06:00:00");
+    }
   }
   if (filters?.thisWeekend) {
     const today = new Date();
@@ -59,6 +103,9 @@ export async function getEvents(filters?: {
     sunday.setHours(23, 59, 59, 999);
     query = query.gte("start_date", saturday.toISOString());
     query = query.lte("end_date", sunday.toISOString());
+  }
+  if (filters?.verifiedOnly) {
+    query = query.eq("verified", true);
   }
   if (filters?.search) {
     query = query.or(`title.ilike.%${filters.search}%,venue_name.ilike.%${filters.search}%`);
@@ -117,7 +164,9 @@ export async function getEventBySlug(slug: string) {
       tags:event_tags_junction(event_tags(*))
     `)
     .eq("slug", slug)
-    .single();
+    .eq("status", "published")
+    .gte("end_date", new Date().toISOString())
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -166,4 +215,38 @@ export async function getAreas() {
 
   if (error) throw error;
   return data;
+}
+
+export async function getFilterOptions() {
+  const [categories, areas] = await Promise.all([getCategories(), getAreas()]);
+  return { categories, areas };
+}
+
+export async function getSimilarEvents(
+  eventId: string,
+  categoryId?: string | null,
+  areaId?: string | null,
+  limit: number = 4
+) {
+  const supabase = await createClient();
+  let query = supabase
+    .from("events")
+    .select(`
+      *,
+      category:event_categories(*),
+      organizer:organizers(*),
+      area:event_areas(*)
+    `)
+    .eq("status", "published")
+    .gte("end_date", new Date().toISOString())
+    .neq("id", eventId)
+    .order("start_date", { ascending: true })
+    .limit(limit);
+
+  if (categoryId) query = query.eq("category_id", categoryId);
+  if (areaId) query = query.eq("area_id", areaId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
 }

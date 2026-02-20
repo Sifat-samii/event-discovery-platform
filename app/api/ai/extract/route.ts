@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/roles";
+import { logApiError } from "@/lib/utils/logger";
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // TODO: Check admin role
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const roleCheck = await requireRole(supabase, "admin");
+    if (!roleCheck.authorized) {
+      return NextResponse.json({ error: "Forbidden" }, { status: roleCheck.status });
     }
 
     const body = await request.json();
@@ -52,6 +50,7 @@ export async function POST(request: NextRequest) {
       extractedData,
     });
   } catch (error: any) {
+    logApiError("/api/ai/extract", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

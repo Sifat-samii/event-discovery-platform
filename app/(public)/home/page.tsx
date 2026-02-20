@@ -1,9 +1,9 @@
 import { getTrendingEvents, getCategories } from "@/lib/db/queries";
 import EventCard from "@/components/events/event-card";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/app-shell";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import Chip from "@/components/ui/chip";
 
 export default async function HomePage() {
   // Fetch data (in production, these would be real queries)
@@ -16,12 +16,11 @@ export default async function HomePage() {
   const newlyAdded = trendingEvents.slice(0, 6);
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen">
+    <AppShell>
+      <div className="min-h-screen py-6">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-primary/10 to-background py-16">
-          <div className="container mx-auto px-4 text-center">
+        <section className="rounded-xl bg-gradient-to-b from-primary/10 to-surface-1 py-12">
+          <div className="page-wrap text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               Discover Cultural Events in Dhaka
             </h1>
@@ -36,11 +35,21 @@ export default async function HomePage() {
                 <Button variant="outline" size="lg">Submit Event</Button>
               </Link>
             </div>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Chip label="All" active />
+              <Chip label="Tonight" />
+              <Chip label="This Weekend" />
+              <Chip label="Free" />
+              <Chip label="Music" />
+              <Chip label="Workshop" />
+              <Chip label="Exhibition" />
+              <Chip label="Theatre" />
+            </div>
           </div>
         </section>
 
         {/* Trending This Week */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Trending This Week</h2>
             <Link href="/browse?sort=trending">
@@ -55,8 +64,8 @@ export default async function HomePage() {
         </section>
 
         {/* This Weekend */}
-        <section className="py-12 bg-muted/50">
-          <div className="container mx-auto px-4">
+        <section className="rounded-xl bg-surface-1 py-12">
+          <div className="page-wrap">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">This Weekend</h2>
               <Link href="/browse?this_weekend=true">
@@ -72,7 +81,7 @@ export default async function HomePage() {
         </section>
 
         {/* Free Events */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Free Events</h2>
             <Link href="/browse?price_type=free">
@@ -87,8 +96,8 @@ export default async function HomePage() {
         </section>
 
         {/* Categories */}
-        <section className="py-12 bg-muted/50">
-          <div className="container mx-auto px-4">
+        <section className="rounded-xl bg-surface-1 py-12">
+          <div className="page-wrap">
             <h2 className="text-2xl font-bold mb-6">Browse by Category</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {categories.slice(0, 12).map((category: any) => (
@@ -105,7 +114,7 @@ export default async function HomePage() {
         </section>
 
         {/* Newly Added */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Newly Added</h2>
             <Link href="/browse?sort=recent">
@@ -118,8 +127,7 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+      </div>
+    </AppShell>
   );
 }

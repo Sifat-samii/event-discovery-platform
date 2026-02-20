@@ -4,10 +4,11 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { getCategories } from "@/lib/db/queries";
 
 export default function OnboardingPage() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [emailReminders, setEmailReminders] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -25,6 +26,7 @@ export default function OnboardingPage() {
     "Hobby & Lifestyle",
     "Competitions",
   ];
+  const areas = ["Dhanmondi", "Gulshan", "Uttara", "Banani", "Mirpur", "Old Dhaka"];
 
   const handleInterestToggle = (interest: string) => {
     setSelectedInterests((prev) =>
@@ -32,6 +34,9 @@ export default function OnboardingPage() {
         ? prev.filter((i) => i !== interest)
         : [...prev, interest]
     );
+  };
+  const handleAreaToggle = (area: string) => {
+    setSelectedAreas((prev) => (prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,6 +56,13 @@ export default function OnboardingPage() {
       if (error) {
         console.error("Error updating interests:", error);
       }
+
+      await supabase.auth.updateUser({
+        data: {
+          preferred_areas: selectedAreas,
+          email_reminders: emailReminders,
+        },
+      });
     }
 
     router.push("/dashboard");
@@ -88,6 +100,33 @@ export default function OnboardingPage() {
               </button>
             ))}
           </div>
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">Preferred areas</h2>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {areas.map((area) => (
+                <button
+                  key={area}
+                  type="button"
+                  onClick={() => handleAreaToggle(area)}
+                  className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                    selectedAreas.includes(area)
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  {area}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="flex items-center gap-2 rounded-lg border border-border p-3">
+            <input
+              type="checkbox"
+              checked={emailReminders}
+              onChange={(e) => setEmailReminders(e.target.checked)}
+            />
+            <span className="text-sm">Enable email reminders for saved events</span>
+          </label>
           <div className="flex gap-4">
             <Button type="submit" className="flex-1" disabled={loading}>
               {loading ? "Saving..." : "Continue"}

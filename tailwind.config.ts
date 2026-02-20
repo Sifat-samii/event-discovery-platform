@@ -10,6 +10,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        bg: "hsl(var(--bg))",
+        surface: {
+          1: "hsl(var(--surface-1))",
+          2: "hsl(var(--surface-2))",
+          3: "hsl(var(--surface-3))",
+        },
+        text: "hsl(var(--text))",
+        "text-muted": "hsl(var(--text-muted))",
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -53,8 +64,18 @@ const config: Config = {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "var(--radius-md)",
+        sm: "calc(var(--radius-md) - 2px)",
+        xl: "var(--radius-lg)",
+      },
+      boxShadow: {
+        "surface-1": "var(--shadow-1)",
+        "surface-2": "var(--shadow-2)",
+      },
+      transitionDuration: {
+        fast: "var(--motion-fast)",
+        base: "var(--motion-base)",
+        slow: "var(--motion-slow)",
       },
     },
   },

@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import EventStepperForm from "@/components/organizer/event-stepper-form";
 
 export default function OrganizerPortal() {
   const [user, setUser] = useState<any>(null);
   const [organizer, setOrganizer] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
   const fetchOrganizer = useCallback(async (userId: string) => {
@@ -67,8 +68,7 @@ export default function OrganizerPortal() {
       } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        fetchOrganizer(user.id);
-        fetchEvents(user.id);
+        await Promise.all([fetchOrganizer(user.id), fetchEvents(user.id)]);
       } else {
         setLoading(false);
       }
@@ -78,21 +78,18 @@ export default function OrganizerPortal() {
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen container mx-auto px-4 py-8">
+      <AppShell>
+        <main className="min-h-screen py-8">
           <div>Loading...</div>
         </main>
-        <Footer />
-      </>
+      </AppShell>
     );
   }
 
   if (!user) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen container mx-auto px-4 py-8">
+      <AppShell>
+        <main className="min-h-screen py-8">
           <div className="text-center">
             <p className="mb-4">Please log in to access organizer portal.</p>
             <Button asChild>
@@ -100,15 +97,13 @@ export default function OrganizerPortal() {
             </Button>
           </div>
         </main>
-        <Footer />
-      </>
+      </AppShell>
     );
   }
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen container mx-auto px-4 py-8">
+    <AppShell>
+      <main className="min-h-screen py-8">
         <h1 className="text-3xl font-bold mb-8">Organizer Portal</h1>
 
         {!organizer ? (
@@ -132,9 +127,34 @@ export default function OrganizerPortal() {
           </div>
         ) : (
           <div className="space-y-8">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-border bg-surface-1 p-4">
+                <p className="text-sm text-muted-foreground">Submitted</p>
+                <p className="mt-1 text-2xl font-semibold">{events.length}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface-1 p-4">
+                <p className="text-sm text-muted-foreground">Published</p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {events.filter((e) => e.status === "published").length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface-1 p-4">
+                <p className="text-sm text-muted-foreground">Pending</p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {events.filter((e) => e.status === "pending").length}
+                </p>
+              </div>
+            </div>
             <div>
               <h2 className="text-xl font-semibold mb-4">My Events</h2>
-              <Button className="mb-4">Submit New Event</Button>
+              <Button className="mb-4" onClick={() => setShowSubmitForm((s) => !s)}>
+                {showSubmitForm ? "Close Form" : "Submit New Event"}
+              </Button>
+              {showSubmitForm ? (
+                <div className="mb-6">
+                  <EventStepperForm onClose={() => setShowSubmitForm(false)} />
+                </div>
+              ) : null}
               {events.length > 0 ? (
                 <div className="space-y-4">
                   {events.map((event) => (
@@ -158,7 +178,6 @@ export default function OrganizerPortal() {
           </div>
         )}
       </main>
-      <Footer />
-    </>
+    </AppShell>
   );
 }

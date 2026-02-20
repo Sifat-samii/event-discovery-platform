@@ -1,12 +1,36 @@
 import { notFound } from "next/navigation";
-import { getEventBySlug } from "@/lib/db/queries";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
-import { Button } from "@/components/ui/button";
+import { getEventBySlug, getSimilarEvents } from "@/lib/db/queries";
+import AppShell from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, Clock, DollarSign, ExternalLink, Share2, Flag } from "lucide-react";
+import { MapPin, Calendar, DollarSign, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import EventCard from "@/components/events/event-card";
+import EventActions from "@/components/events/event-actions";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const event = await getEventBySlug(params.slug);
+  if (!event) {
+    return {
+      title: "Event not found | Events Dhaka",
+    };
+  }
+
+  return {
+    title: `${event.title} | Events Dhaka`,
+    description: event.description?.slice(0, 160) || "Discover cultural events in Dhaka.",
+    openGraph: {
+      title: event.title,
+      description: event.description?.slice(0, 160),
+      images: event.poster_url ? [event.poster_url] : [],
+    },
+  };
+}
 
 export default async function EventDetailPage({
   params,
@@ -18,6 +42,13 @@ export default async function EventDetailPage({
   if (!event) {
     notFound();
   }
+
+  const similarEvents = await getSimilarEvents(
+    event.id,
+    event.category_id,
+    event.area_id,
+    4
+  );
 
   const eventDate = new Date(event.start_date);
   const formattedDate = eventDate.toLocaleDateString("en-US", {
@@ -32,14 +63,13 @@ export default async function EventDetailPage({
   );
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen container mx-auto px-4 py-8">
+    <AppShell>
+      <div className="min-h-screen py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Poster */}
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2">
               {event.poster_url ? (
                 <Image
                   src={event.poster_url}
@@ -77,7 +107,7 @@ export default async function EventDetailPage({
             </div>
 
             {/* Event Details */}
-            <div className="border rounded-lg p-6 space-y-4">
+            <div className="glass-surface rounded-xl p-6 space-y-4">
               <h2 className="text-xl font-semibold mb-4">Event Details</h2>
               
               <div className="flex items-start gap-3">
@@ -131,7 +161,7 @@ export default async function EventDetailPage({
 
             {/* Organizer */}
             {event.organizer && (
-              <div className="border rounded-lg p-6">
+              <div className="glass-surface rounded-xl p-6">
                 <h2 className="text-xl font-semibold mb-4">Organizer</h2>
                 <Link
                   href={`/organizers/${event.organizer.id}`}
@@ -152,25 +182,12 @@ export default async function EventDetailPage({
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-4">
-            <div className="border rounded-lg p-6 space-y-4 sticky top-4">
-              <Button className="w-full">Save Event</Button>
-              <Button variant="outline" className="w-full">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-              <Button variant="outline" className="w-full">
-                Add to Calendar
-              </Button>
-              <Button variant="outline" className="w-full text-destructive">
-                <Flag className="h-4 w-4 mr-2" />
-                Report Incorrect Info
-              </Button>
-            </div>
+            <div className="space-y-4">
+            <EventActions eventId={event.id} eventSlug={event.slug} />
 
             {/* Google Maps */}
             {event.venue_coordinates && (
-              <div className="border rounded-lg p-6">
+              <div className="glass-surface rounded-xl p-6">
                 <h3 className="font-semibold mb-4">Location</h3>
                 <div className="aspect-video bg-muted rounded">
                   {/* Google Maps embed would go here */}
@@ -180,10 +197,20 @@ export default async function EventDetailPage({
                 </div>
               </div>
             )}
+
+            {similarEvents.length > 0 && (
+              <div className="glass-surface rounded-xl p-6">
+                <h3 className="font-semibold mb-4">Similar Events</h3>
+                <div className="space-y-3">
+                  {similarEvents.map((similar) => (
+                    <EventCard key={similar.id} event={similar} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </main>
-      <Footer />
-    </>
+      </div>
+    </AppShell>
   );
 }

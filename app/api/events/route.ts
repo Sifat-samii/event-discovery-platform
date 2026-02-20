@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEvents } from "@/lib/db/queries";
+import { logApiError } from "@/lib/utils/logger";
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+    const parsedPage = parseInt(searchParams.get("page") || "1", 10);
+    const parsedLimit = parseInt(searchParams.get("limit") || "20", 10);
     
     const filters = {
       category: searchParams.get("category") || undefined,
@@ -14,10 +17,14 @@ export async function GET(request: NextRequest) {
       priceType: searchParams.get("price_type") as "free" | "paid" | undefined,
       timeSlot: searchParams.get("time_slot") as "morning" | "afternoon" | "evening" | "night" | undefined,
       thisWeekend: searchParams.get("this_weekend") === "true",
+      verifiedOnly: searchParams.get("verified_only") === "true",
       search: searchParams.get("search") || undefined,
       sort: searchParams.get("sort") as "soonest" | "trending" | "recent" | undefined,
-      page: parseInt(searchParams.get("page") || "1"),
-      limit: parseInt(searchParams.get("limit") || "20"),
+      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+      limit:
+        Number.isFinite(parsedLimit) && parsedLimit > 0 && parsedLimit <= 100
+          ? parsedLimit
+          : 20,
     };
 
     const { data, error, count } = await getEvents(filters);
@@ -36,6 +43,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    logApiError("/api/events", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const getUser = async () => {
@@ -28,18 +29,36 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="text-2xl font-bold">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface-1/85 backdrop-blur-md">
+      <div className="page-wrap flex items-center gap-4 py-3">
+        <Link href="/home" className="shrink-0 text-lg font-semibold md:text-xl">
           Events Dhaka
         </Link>
-        <nav className="flex items-center gap-4">
-          <Link href="/browse" className="text-sm hover:text-primary">
-            Browse Events
+        <div className="hidden flex-1 md:block">
+          <Input
+            placeholder="Search events, venues, organizers..."
+            className="bg-surface-2"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const value = (e.currentTarget as HTMLInputElement).value.trim();
+                router.push(value ? `/browse?search=${encodeURIComponent(value)}` : "/browse");
+              }
+            }}
+          />
+        </div>
+        <nav className="hidden items-center gap-4 md:flex">
+          <Link href="/browse" className="text-sm text-muted-foreground hover:text-foreground">
+            Browse
+          </Link>
+          <Link href="/browse?this_weekend=true" className="text-sm text-muted-foreground hover:text-foreground">
+            This Weekend
+          </Link>
+          <Link href="/organizer" className="text-sm text-muted-foreground hover:text-foreground">
+            Submit
           </Link>
           {user ? (
             <>
-              <Link href="/dashboard" className="text-sm hover:text-primary">
+              <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
                 Dashboard
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -57,6 +76,11 @@ export default function Header() {
             </>
           )}
         </nav>
+        <div className="ml-auto md:hidden">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/browse")}>
+            Search
+          </Button>
+        </div>
       </div>
     </header>
   );

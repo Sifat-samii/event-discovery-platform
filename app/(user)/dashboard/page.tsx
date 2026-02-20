@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/app-shell";
 import EventCard from "@/components/events/event-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,21 +55,18 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen container mx-auto px-4 py-8">
+      <AppShell>
+        <main className="min-h-screen py-8">
           <div className="text-center">Loading...</div>
         </main>
-        <Footer />
-      </>
+      </AppShell>
     );
   }
 
   if (!user) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen container mx-auto px-4 py-8">
+      <AppShell>
+        <main className="min-h-screen py-8">
           <div className="text-center">
             <p className="mb-4">Please log in to view your dashboard.</p>
             <Button asChild>
@@ -78,8 +74,7 @@ export default function DashboardPage() {
             </Button>
           </div>
         </main>
-        <Footer />
-      </>
+      </AppShell>
     );
   }
 
@@ -92,12 +87,11 @@ export default function DashboardPage() {
   );
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen container mx-auto px-4 py-8">
+    <AppShell>
+      <main className="min-h-screen py-8">
         <h1 className="text-3xl font-bold mb-8">My Dashboard</h1>
 
-        <Tabs defaultValue="saved" className="w-full">
+        <Tabs defaultValue="upcoming" className="w-full">
           <TabsList>
             <TabsTrigger value="saved">All Saved ({savedEvents.length})</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
@@ -164,7 +158,6 @@ export default function DashboardPage() {
           </TabsContent>
         </Tabs>
       </main>
-      <Footer />
-    </>
+    </AppShell>
   );
 }
