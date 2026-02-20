@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
@@ -12,24 +12,9 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [savedEvents, setSavedEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        fetchSavedEvents(user.id);
-      } else {
-        setLoading(false);
-      }
-    };
-    getUser();
-  }, [supabase]);
-
-  const fetchSavedEvents = async (userId: string) => {
+  const fetchSavedEvents = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("saved_events")
@@ -52,7 +37,22 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        fetchSavedEvents(user.id);
+      } else {
+        setLoading(false);
+      }
+    };
+    getUser();
+  }, [fetchSavedEvents, supabase]);
 
   if (loading) {
     return (

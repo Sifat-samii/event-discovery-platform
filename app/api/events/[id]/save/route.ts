@@ -3,9 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -17,7 +18,7 @@ export async function POST(
 
     const { error } = await supabase.from("saved_events").insert({
       user_id: user.id,
-      event_id: params.id,
+      event_id: id,
     });
 
     if (error) {
@@ -39,9 +40,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -55,7 +57,7 @@ export async function DELETE(
       .from("saved_events")
       .delete()
       .eq("user_id", user.id)
-      .eq("event_id", params.id);
+      .eq("event_id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

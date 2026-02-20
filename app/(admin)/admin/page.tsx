@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
@@ -12,7 +12,39 @@ export default function AdminPanel() {
   const [events, setEvents] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  const fetchReports = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("event_reports")
+        .select("*")
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setReports(data || []);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -29,39 +61,7 @@ export default function AdminPanel() {
       }
     };
     getUser();
-  }, [supabase]);
-
-  const fetchEvents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setEvents(data || []);
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchReports = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("event_reports")
-        .select("*")
-        .eq("status", "open")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setReports(data || []);
-    } catch (error) {
-      console.error("Error fetching reports:", error);
-    }
-  };
+  }, [fetchEvents, fetchReports, supabase]);
 
   if (loading) {
     return (

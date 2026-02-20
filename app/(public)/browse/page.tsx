@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import EventCard from "@/components/events/event-card";
 import Header from "@/components/layout/header";
@@ -8,7 +8,7 @@ import Footer from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function BrowsePage() {
+function BrowsePageContent() {
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,11 +21,7 @@ export default function BrowsePage() {
     thisWeekend: searchParams.get("this_weekend") === "true",
   });
 
-  useEffect(() => {
-    fetchEvents();
-  }, [filters]);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -44,7 +40,11 @@ export default function BrowsePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   return (
     <>
@@ -139,5 +139,13 @@ export default function BrowsePage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen container mx-auto px-4 py-8">Loading browse page...</div>}>
+      <BrowsePageContent />
+    </Suspense>
   );
 }

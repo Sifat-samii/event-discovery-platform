@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
@@ -12,25 +12,9 @@ export default function OrganizerPortal() {
   const [organizer, setOrganizer] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        fetchOrganizer(user.id);
-        fetchEvents(user.id);
-      } else {
-        setLoading(false);
-      }
-    };
-    getUser();
-  }, [supabase]);
-
-  const fetchOrganizer = async (userId: string) => {
+  const fetchOrganizer = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("organizers")
@@ -45,15 +29,19 @@ export default function OrganizerPortal() {
     } catch (error) {
       console.error("Error fetching organizer:", error);
     }
-  };
+  }, [supabase]);
 
-  const fetchEvents = async (userId: string) => {
+  const fetchEvents = useCallback(async (userId: string) => {
     try {
-      const { data: error } = await supabase
+      const { data, error } = await supabase
         .from("organizers")
         .select("id")
         .eq("user_id", userId)
         .single();
+
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
 
       if (data) {
         const { data: eventsData, error: eventsError } = await supabase
@@ -70,7 +58,23 @@ export default function OrganizerPortal() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        fetchOrganizer(user.id);
+        fetchEvents(user.id);
+      } else {
+        setLoading(false);
+      }
+    };
+    getUser();
+  }, [fetchEvents, fetchOrganizer, supabase]);
 
   if (loading) {
     return (
