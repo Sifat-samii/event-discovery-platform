@@ -12,8 +12,10 @@ import BottomSheet from "@/components/ui/bottom-sheet";
 import { useToast } from "@/components/ui/toast";
 import SearchInput from "@/components/ui/search-input";
 import Chip from "@/components/ui/chip";
+import { logClientError } from "@/lib/utils/client-logger";
 
 type SelectOption = { id: string; name: string; slug: string };
+type TimeSlotOption = { id: string; label: string };
 type DatePreset = "today" | "weekend" | "custom" | "";
 const PAGE_LIMIT = 12;
 
@@ -39,7 +41,9 @@ function BrowsePageContent() {
   });
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [subcategories, setSubcategories] = useState<SelectOption[]>([]);
+  const [subcategoriesByCategory, setSubcategoriesByCategory] = useState<Record<string, SelectOption[]>>({});
   const [areas, setAreas] = useState<SelectOption[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlotOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => ({
     search: searchParams.get("search") || "",
@@ -97,22 +101,26 @@ function BrowsePageContent() {
 
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const response = await fetch("/api/events/meta");
+      const response = await fetch("/api/events/filters-meta");
       const data = await response.json();
-      const categoryList = (data.categories || []) as (SelectOption & {
-        subcategories?: SelectOption[];
-      })[];
+      const categoryList = (data.categories || []) as SelectOption[];
       setCategories(categoryList);
       setAreas((data.areas || []) as SelectOption[]);
+      setSubcategoriesByCategory((data.subcategoriesByCategory || {}) as Record<string, SelectOption[]>);
+      setTimeSlots((data.timeSlots || []) as TimeSlotOption[]);
 
       if (filters.categories.length === 1) {
         const selected = categoryList.find((c) => c.slug === filters.categories[0]);
-        setSubcategories(selected?.subcategories || []);
+        setSubcategories(selected ? data.subcategoriesByCategory?.[selected.id] || [] : []);
       } else {
         setSubcategories([]);
       }
     } catch (error) {
-      console.error("Failed to load filter options", error);
+      logClientError({
+        scope: "browse",
+        message: "Failed to load filter options",
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }, [filters.categories]);
 
@@ -173,8 +181,12 @@ function BrowsePageContent() {
           })
         );
       } catch (error: any) {
-        console.error("Error fetching events:", error);
-        setError(error.message || "Failed to load events");
+        logClientError({
+          scope: "browse",
+          message: "Failed to fetch events",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setError(error?.message || "Failed to load events");
       } finally {
         if (!append) setLoading(false);
         setLoadingMore(false);
@@ -268,10 +280,8 @@ function BrowsePageContent() {
     const categoriesNext = toggleMultiValue(filters.categories, categorySlug);
     let nextSubcategories: SelectOption[] = [];
     if (categoriesNext.length === 1) {
-      const selected = categories.find((c) => c.slug === categoriesNext[0]) as
-        | (SelectOption & { subcategories?: SelectOption[] })
-        | undefined;
-      nextSubcategories = selected?.subcategories || [];
+      const selected = categories.find((c) => c.slug === categoriesNext[0]);
+      nextSubcategories = selected ? subcategoriesByCategory[selected.id] || [] : [];
     }
     setSubcategories(nextSubcategories);
     const next = {
@@ -331,6 +341,15 @@ function BrowsePageContent() {
       verifiedOnly: false,
     });
   };
+
+  useEffect(() => {
+    if (filters.categories.length !== 1) {
+      setSubcategories([]);
+      return;
+    }
+    const selected = categories.find((c) => c.slug === filters.categories[0]);
+    setSubcategories(selected ? subcategoriesByCategory[selected.id] || [] : []);
+  }, [categories, filters.categories, subcategoriesByCategory]);
 
   return (
     <AppShell>
@@ -468,10 +487,11 @@ function BrowsePageContent() {
                     }}
                   >
                     <option value="">All</option>
-                    <option value="morning">Morning (6:00-12:00)</option>
-                    <option value="afternoon">Afternoon (12:00-17:00)</option>
-                    <option value="evening">Evening (17:00-21:00)</option>
-                    <option value="night">Night (21:00-6:00)</option>
+                    {timeSlots.map((slot) => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

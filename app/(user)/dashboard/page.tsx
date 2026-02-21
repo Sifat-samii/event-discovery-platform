@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/app-shell";
 import EventCard from "@/components/events/event-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
+import { logClientError } from "@/lib/utils/client-logger";
 
 type ReminderPreference = "off" | "24h" | "3h" | "both";
 
@@ -15,29 +15,21 @@ export default function DashboardPage() {
   const [savedEvents, setSavedEvents] = useState<any[]>([]);
   const [reminderPrefs, setReminderPrefs] = useState<Record<string, ReminderPreference>>({});
   const [loading, setLoading] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
+  const [userLoadFailed, setUserLoadFailed] = useState(false);
   const { pushToast } = useToast();
 
-  const fetchSavedEvents = useCallback(async (userId: string) => {
+  const fetchSavedEvents = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("saved_events")
-        .select(`
-          *,
-          event:events(
-            *,
-            category:event_categories(*),
-            organizer:organizers(*),
-            area:event_areas(*)
-          )
-        `)
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const savesResponse = await fetch("/api/users/me/saves?page=1&limit=100");
+      const savesBody = await savesResponse.json();
+      if (!savesResponse.ok) {
+        throw new Error(savesBody.error || "Failed to load saved events");
+      }
+      const saves = savesBody.data || [];
+      setSavedEvents(saves);
 
-      if (error) throw error;
-      setSavedEvents(data || []);
-      if (data?.length) {
-        const eventIds = data.map((item: any) => item.event_id).join(",");
+      if (saves.length) {
+        const eventIds = saves.map((item: any) => item.event_id).join(",");
         const reminderResponse = await fetch(`/api/reminders?event_ids=${encodeURIComponent(eventIds)}`);
         if (reminderResponse.ok) {
           const remindersBody = await reminderResponse.json();
@@ -52,26 +44,42 @@ export default function DashboardPage() {
         }
       }
     } catch (error) {
-      console.error("Error fetching saved events:", error);
+      logClientError({
+        scope: "dashboard",
+        message: "Failed to fetch saved events",
+        error: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        fetchSavedEvents(user.id);
-      } else {
+      try {
+        const response = await fetch("/api/users/me");
+        const body = await response.json();
+        if (!response.ok) {
+          setUser(null);
+          setLoading(false);
+          setUserLoadFailed(response.status >= 500);
+          return;
+        }
+        setUser(body.user || null);
+        await fetchSavedEvents();
+      } catch (error) {
+        setUser(null);
         setLoading(false);
+        setUserLoadFailed(true);
+        logClientError({
+          scope: "dashboard",
+          message: "Failed to fetch authenticated user",
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     };
     getUser();
-  }, [fetchSavedEvents, supabase]);
+  }, [fetchSavedEvents]);
 
   if (loading) {
     return (
@@ -88,7 +96,9 @@ export default function DashboardPage() {
       <AppShell>
         <main className="min-h-screen py-8">
           <div className="text-center">
-            <p className="mb-4">Please log in to view your dashboard.</p>
+            <p className="mb-4">
+              {userLoadFailed ? "Could not verify your account right now." : "Please log in to view your dashboard."}
+            </p>
             <Button asChild>
               <a href="/login">Login</a>
             </Button>

@@ -2,20 +2,19 @@
 
 import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ProfilePage() {
-  const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const loadUser = async () => {
-      const result = await supabase.auth.getUser();
-      setUser(result.data.user);
+      const response = await fetch("/api/users/me");
+      const body = await response.json();
+      setUser(response.ok ? body.user : null);
     };
     loadUser();
-  }, [supabase]);
+  }, []);
 
   return (
     <AppShell>

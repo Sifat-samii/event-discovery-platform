@@ -33,22 +33,10 @@ export default function SignupPage() {
       setError(signUpError.message);
       setLoading(false);
     } else {
-      // Create user profile
       if (data.user) {
-        const { error: profileError } = await supabase
-          .from("users")
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName,
-          });
-
-        if (profileError) {
-          setError(profileError.message);
-          setLoading(false);
-        } else {
-          router.push("/onboarding");
-        }
+        router.push("/onboarding");
+      } else {
+        setLoading(false);
       }
     }
   };

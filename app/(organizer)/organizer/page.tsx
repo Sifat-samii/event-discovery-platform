@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import EventStepperForm from "@/components/organizer/event-stepper-form";
 import { useToast } from "@/components/ui/toast";
+import { logClientError } from "@/lib/utils/client-logger";
 
 export default function OrganizerPortal() {
   const [user, setUser] = useState<any>(null);
@@ -14,54 +14,48 @@ export default function OrganizerPortal() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
+  const [accessDenied, setAccessDenied] = useState(false);
   const { pushToast } = useToast();
 
-  const fetchOrganizer = useCallback(async (userId: string) => {
+  const fetchOrganizer = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("organizers")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw error;
+      const response = await fetch("/api/organizer/profile");
+      const body = await response.json();
+      if (response.status === 403) {
+        setAccessDenied(true);
+        return;
       }
-      setOrganizer(data);
+      if (!response.ok) throw new Error(body.error || "Failed to load organizer profile");
+      setOrganizer(body.organizer || null);
     } catch (error) {
-      console.error("Error fetching organizer:", error);
+      logClientError({
+        scope: "organizer-portal",
+        message: "Failed to fetch organizer profile",
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-  }, [supabase]);
+  }, []);
 
   const fetchEvents = useCallback(async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("organizers")
-        .select("id")
-        .eq("user_id", userId)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw error;
+      if (!userId) {
+        setLoading(false);
+        return;
       }
-
-      if (data) {
-        const { data: eventsData, error: eventsError } = await supabase
-          .from("events")
-          .select("*")
-          .eq("organizer_id", data.id)
-          .order("created_at", { ascending: false });
-
-        if (eventsError) throw eventsError;
-        setEvents(eventsData || []);
-      }
+      const response = await fetch("/api/organizer/events?page=1&limit=100");
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to load events");
+      setEvents(body.data || []);
     } catch (error) {
-      console.error("Error fetching events:", error);
+      logClientError({
+        scope: "organizer-portal",
+        message: "Failed to fetch organizer events",
+        error: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   const handleSubmitDraft = async (draft: any) => {
     const response = await fetch("/api/organizer/events", {
@@ -81,20 +75,48 @@ export default function OrganizerPortal() {
     });
   };
 
+  const handleDeleteEvent = async (eventId: string) => {
+    const response = await fetch(`/api/organizer/events/${eventId}`, { method: "DELETE" });
+    const body = await response.json();
+    if (!response.ok) {
+      pushToast({
+        title: "Delete failed",
+        description: body.error || "Please try again.",
+        type: "danger",
+      });
+      return;
+    }
+    if (user?.id) await fetchEvents(user.id);
+    pushToast({ title: "Event deleted", description: "Soft deleted successfully.", type: "success" });
+  };
+
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        await Promise.all([fetchOrganizer(user.id), fetchEvents(user.id)]);
-      } else {
+      try {
+        const response = await fetch("/api/users/me");
+        const body = await response.json();
+        if (!response.ok) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        setUser(body.user || null);
+        if (body.user?.id) {
+          await Promise.all([fetchOrganizer(), fetchEvents(body.user.id)]);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        logClientError({
+          scope: "organizer-portal",
+          message: "Failed to fetch authenticated user",
+          error: error instanceof Error ? error.message : String(error),
+        });
         setLoading(false);
       }
     };
     getUser();
-  }, [fetchEvents, fetchOrganizer, supabase]);
+  }, [fetchEvents, fetchOrganizer]);
 
   if (loading) {
     return (
@@ -116,6 +138,16 @@ export default function OrganizerPortal() {
               <a href="/login">Login</a>
             </Button>
           </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <AppShell>
+        <main className="min-h-screen py-8">
+          <p className="text-center">Organizer access required.</p>
         </main>
       </AppShell>
     );
@@ -189,7 +221,13 @@ export default function OrganizerPortal() {
                             Status: {event.status}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteEvent(event.id)}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   ))}

@@ -30,9 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const envCheck = validateRuntimeEnv();
-  if (!envCheck.ok) {
-    console.warn("Invalid runtime env keys:", envCheck.invalid.join(", "));
-  }
+  void envCheck;
 
   return (
     <html lang="en" className="dark">

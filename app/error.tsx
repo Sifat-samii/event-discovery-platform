@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { logClientError } from "@/lib/utils/client-logger";
 
 export default function Error({
   error,
@@ -11,7 +12,13 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("App error boundary caught:", error);
+    logClientError({
+      source: "app/error",
+      message: "Segment error boundary caught",
+      error: error.message,
+      stack: error.stack,
+      metadata: { digest: error.digest },
+    });
   }, [error]);
 
   return (

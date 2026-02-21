@@ -1,5 +1,7 @@
 "use client";
 
+import { logClientError } from "@/lib/utils/client-logger";
+
 export default function GlobalError({
   error,
   reset,
@@ -7,7 +9,13 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  console.error("Global app crash:", error);
+  logClientError({
+    source: "app/global-error",
+    message: "Global app crash",
+    error: error.message,
+    stack: error.stack,
+    metadata: { digest: error.digest },
+  });
 
   return (
     <html>

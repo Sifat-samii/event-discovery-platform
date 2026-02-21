@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { logClientError } from "@/lib/utils/client-logger";
 
 export default function OnboardingPage() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -11,7 +11,6 @@ export default function OnboardingPage() {
   const [emailReminders, setEmailReminders] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   // This would be fetched from the database
   const categories = [
@@ -42,29 +41,29 @@ export default function OnboardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      const { error } = await supabase
-        .from("users")
-        .update({ interests: selectedInterests })
-        .eq("id", user.id);
-
-      if (error) {
-        console.error("Error updating interests:", error);
-      }
-
-      await supabase.auth.updateUser({
-        data: {
-          preferred_areas: selectedAreas,
-          email_reminders: emailReminders,
-        },
+    try {
+      const response = await fetch("/api/users/me/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interests: selectedInterests,
+          preferredAreas: selectedAreas,
+          emailReminders,
+        }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Failed to save onboarding preferences");
+      }
+    } catch (error) {
+      logClientError({
+        scope: "onboarding",
+        message: "Failed to persist onboarding preferences",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setLoading(false);
     }
-
     router.push("/dashboard");
   };
 

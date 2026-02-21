@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,68 +18,61 @@ export default function AdminPanel() {
   const [organizerFilter, setOrganizerFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [selectedReport, setSelectedReport] = useState<any>(null);
-  const supabase = useMemo(() => createClient(), []);
+  const [page] = useState(1);
+  const [limit] = useState(50);
   const { pushToast } = useToast();
 
   const fetchEvents = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*, organizer:organizers(name)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setEvents(data || []);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        status: statusFilter,
+      });
+      if (organizerFilter !== "all") params.set("organizer", organizerFilter);
+      if (dateFilter) params.set("date", dateFilter);
+      const response = await fetch(`/api/admin/events?${params.toString()}`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to load events");
+      setEvents(body.data || []);
     } catch (error) {
-      console.error("Error fetching events:", error);
+      pushToast({ title: "Failed to load events", type: "danger" });
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [dateFilter, limit, organizerFilter, page, pushToast, statusFilter]);
 
   const fetchReports = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("event_reports")
-        .select("*")
-        .eq("status", "open")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setReports(data || []);
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      const response = await fetch(`/api/admin/reports?${params.toString()}`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to load reports");
+      setReports(body.data || []);
     } catch (error) {
-      console.error("Error fetching reports:", error);
+      pushToast({ title: "Failed to load reports", type: "danger" });
     }
-  }, [supabase]);
+  }, [limit, page, pushToast]);
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (!user) {
+      const response = await fetch("/api/users/me");
+      const body = await response.json();
+      if (!response.ok) {
+        setUser(null);
         setLoading(false);
         return;
       }
-
-      const { data: profile } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      const admin = profile?.role === "admin";
+      setUser(body.user || null);
+      const admin = body?.user?.role === "admin";
       setIsAdmin(admin);
       if (!admin) {
         setLoading(false);
         return;
       }
-      await Promise.all([fetchEvents(), fetchReports()]);
     };
     getUser();
-  }, [fetchEvents, fetchReports, supabase]);
+  }, []);
 
   const updateEventStatus = async (eventId: string, status: string) => {
     const response = await fetch(`/api/admin/events/${eventId}/status`, {
@@ -121,7 +113,7 @@ export default function AdminPanel() {
   };
 
   const resolveReport = async (reportId: string, status: "reviewed" | "resolved") => {
-    const response = await fetch(`/api/reports/${reportId}/resolve`, {
+    const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -139,6 +131,16 @@ export default function AdminPanel() {
     fetchReports();
     pushToast({ title: `Report marked ${status}`, type: "success" });
   };
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchEvents();
+  }, [fetchEvents, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchReports();
+  }, [fetchReports, isAdmin]);
 
   if (loading) {
     return (
@@ -175,13 +177,20 @@ export default function AdminPanel() {
     );
   }
 
-  const organizerNames = Array.from(
+  const organizers = Array.from(
     new Set(
-      events
-        .map((event) => event.organizer?.name)
-        .filter(Boolean) as string[]
+      events.map((event) =>
+        event.organizer?.id && event.organizer?.name
+          ? `${event.organizer.id}::${event.organizer.name}`
+          : ""
+      )
     )
-  );
+  )
+    .filter(Boolean)
+    .map((item) => {
+      const [id, name] = item.split("::");
+      return { id, name };
+    });
   const duplicateKeyCount = events.reduce<Record<string, number>>((acc, event) => {
     const key = `${event.title?.toLowerCase()}|${new Date(event.start_date).toDateString()}|${event.venue_name?.toLowerCase()}`;
     acc[key] = (acc[key] || 0) + 1;
@@ -228,9 +237,9 @@ export default function AdminPanel() {
                 onChange={(e) => setOrganizerFilter(e.target.value)}
               >
                 <option value="all">All organizers</option>
-                {organizerNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
+                {organizers.map((organizer) => (
+                  <option key={organizer.id} value={organizer.id}>
+                    {organizer.name}
                   </option>
                 ))}
               </select>
@@ -256,14 +265,7 @@ export default function AdminPanel() {
                 </thead>
                 <tbody>
                   {events
-                    .filter((event) => (statusFilter === "all" ? true : event.status === statusFilter))
                     .filter((event) => (verifiedOnly ? !!event.verified : true))
-                    .filter((event) => (organizerFilter === "all" ? true : event.organizer?.name === organizerFilter))
-                    .filter((event) =>
-                      dateFilter
-                        ? new Date(event.start_date).toISOString().slice(0, 10) === dateFilter
-                        : true
-                    )
                     .map((event) => (
                     <tr key={event.id} className="border-t">
                       <td className="p-4">
