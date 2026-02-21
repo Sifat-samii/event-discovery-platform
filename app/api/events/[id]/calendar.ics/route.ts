@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEventById } from "@/lib/db/queries";
+import { handleRoute } from "@/lib/api/handle-route";
+import { sanitizeUuid } from "@/lib/security/sanitize";
 
 function buildIcsDate(date: Date) {
   return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const event = await getEventById(id);
+export const GET = handleRoute<{ id: string }>(
+  {
+    route: "/api/events/[id]/calendar.ics",
+    action: "calendar-export",
+    rateLimitKey: "calendar-export",
+    rateLimitLimit: 120,
+  },
+  async (_request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
+    const eventId = sanitizeUuid(id);
+    if (!eventId) {
+      return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
+    }
+    const { data: event } = await context.supabase
+      .from("events")
+      .select("id,slug,title,description,venue_name,venue_address,start_date,end_date,status,deleted_at")
+      .eq("id", eventId)
+      .eq("status", "published")
+      .gte("end_date", new Date().toISOString())
+      .is("deleted_at", null)
+      .maybeSingle();
     if (!event) {
       return new NextResponse("Event not found", { status: 404 });
     }
@@ -44,10 +59,5 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${event.slug || "event"}.ics"`,
       },
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to generate calendar file" },
-      { status: 500 }
-    );
   }
-}
+);

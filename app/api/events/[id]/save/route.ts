@@ -1,130 +1,158 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { logApiError } from "@/lib/utils/logger";
-import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { logApiWarn } from "@/lib/utils/logger";
+import { sanitizeUuid } from "@/lib/security/sanitize";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const limiter = rateLimit({
-      key: `save-event:${getClientIp(request)}`,
-      limit: 80,
-      windowMs: 60_000,
-    });
-    if (!limiter.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+export const POST = handleRoute<{ id: string }>(
+  {
+    route: "/api/events/[id]/save",
+    action: "save-event",
+    requireAuth: true,
+    rateLimitKey: "save-event",
+    rateLimitLimit: 80,
+  },
+  async (_request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
+    const eventId = sanitizeUuid(id);
+    if (!eventId) {
+      return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
+    }
+    const supabase = context.supabase;
+    const userId = context.userId;
+
+    const { data: event } = await supabase
+      .from("events")
+      .select("id,status,end_date,deleted_at")
+      .eq("id", eventId)
+      .maybeSingle();
+    if (!event || event.deleted_at || event.status !== "published" || event.end_date < new Date().toISOString()) {
+      return NextResponse.json({ error: "Cannot save expired or unpublished event" }, { status: 400 });
     }
 
-    const { id } = await params;
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { error } = await supabase.from("saved_events").insert({
-      user_id: user.id,
-      event_id: id,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        // Already saved
-        return NextResponse.json({ success: true, saved: true });
+    const { data: existing, error: existingError } = await supabase
+      .from("saved_events")
+      .select("id,deleted_at")
+      .eq("user_id", userId)
+      .eq("event_id", eventId)
+      .maybeSingle();
+    if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+    if (existing?.id) {
+      if (existing.deleted_at) {
+        const { error: reviveError } = await supabase
+          .from("saved_events")
+          .update({ deleted_at: null })
+          .eq("id", existing.id);
+        if (reviveError) return NextResponse.json({ error: reviveError.message }, { status: 500 });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    } else {
+      const { error } = await supabase.from("saved_events").insert({
+        user_id: userId,
+        event_id: eventId,
+      });
+      if (error) {
+        if (error.code === "23505") {
+          return NextResponse.json({ success: true, saved: true });
+        }
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
 
     const { error: reminderError } = await supabase.from("reminders").upsert({
-      user_id: user.id,
-      event_id: id,
+      user_id: userId,
+      event_id: eventId,
+      reminder_type: "combined",
       reminder_24h: true,
       reminder_3h: false,
+      deleted_at: null,
+      status_24h: "pending",
+      status_3h: "pending",
+      status: "pending",
+      timezone: "Asia/Dhaka",
     });
     if (reminderError) {
-      console.error("Failed to initialize reminder after save", reminderError.message);
+      logApiWarn(
+        {
+          route: "/api/events/[id]/save POST",
+          userId,
+          action: "save-event-init-reminder",
+        },
+        reminderError.message
+      );
     }
 
     return NextResponse.json({ success: true, saved: true });
-  } catch (error: any) {
-    logApiError("/api/events/[id]/save POST", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+export const GET = handleRoute<{ id: string }>(
+  {
+    route: "/api/events/[id]/save",
+    action: "get-save-state",
+    rateLimitKey: "save-state",
+    rateLimitLimit: 180,
+  },
+  async (_request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
+    const eventId = sanitizeUuid(id);
+    if (!eventId) {
+      return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
+    }
+    const supabase = context.supabase;
+    const userId = context.userId;
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ success: true, saved: false });
     }
 
     const { data, error } = await supabase
       .from("saved_events")
       .select("id")
-      .eq("user_id", user.id)
-      .eq("event_id", id)
+      .eq("user_id", userId)
+      .eq("event_id", eventId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, saved: Boolean(data?.id) });
-  } catch (error: any) {
-    logApiError("/api/events/[id]/save GET", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
+    const { count } = await supabase
+      .from("saved_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const limiter = rateLimit({
-      key: `unsave-event:${getClientIp(request)}`,
-      limit: 80,
-      windowMs: 60_000,
+    return NextResponse.json({
+      success: true,
+      saved: Boolean(data?.id),
+      saveCount: count || 0,
     });
-    if (!limiter.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+  }
+);
 
-    const { id } = await params;
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const DELETE = handleRoute<{ id: string }>(
+  {
+    route: "/api/events/[id]/save",
+    action: "unsave-event",
+    requireAuth: true,
+    rateLimitKey: "unsave-event",
+    rateLimitLimit: 80,
+  },
+  async (_request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
+    const eventId = sanitizeUuid(id);
+    if (!eventId) {
+      return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
     }
+    const supabase = context.supabase;
+    const userId = context.userId;
 
     const { error } = await supabase
       .from("saved_events")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("event_id", id);
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -132,16 +160,11 @@ export async function DELETE(
 
     await supabase
       .from("reminders")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("event_id", id);
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
 
     return NextResponse.json({ success: true, saved: false });
-  } catch (error: any) {
-    logApiError("/api/events/[id]/save DELETE", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);

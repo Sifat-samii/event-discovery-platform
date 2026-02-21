@@ -1,20 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEvent, checkDuplicateEvent } from "@/lib/validation/event-validation";
-import { createClient } from "@/lib/supabase/server";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function POST(request: NextRequest) {
-  try {
+export const POST = handleRoute(
+  {
+    route: "/api/events/validate",
+    action: "validate-event-payload",
+    rateLimitKey: "events-validate",
+    rateLimitLimit: 120,
+  },
+  async (request: NextRequest, context) => {
     const event = await request.json();
     
     // Validate event data
     const validation = validateEvent(event);
     
-    // Check for duplicates
-    const supabase = await createClient();
-    const { data: existingEvents } = await supabase
+    // Check for duplicates in a bounded date window.
+    const pivot = event?.start_date ? new Date(event.start_date) : new Date();
+    const lower = new Date(pivot.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const upper = new Date(pivot.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: existingEvents } = await context.supabase
       .from("events")
       .select("id, title, start_date, venue_name")
-      .eq("status", "published");
+      .eq("status", "published")
+      .is("deleted_at", null)
+      .gte("end_date", new Date().toISOString())
+      .gte("start_date", lower)
+      .lte("start_date", upper)
+      .order("start_date", { ascending: true })
+      .limit(200);
 
     const duplicateCheck = checkDuplicateEvent(
       event.title,
@@ -35,10 +50,5 @@ export async function POST(request: NextRequest) {
       warnings: validation.warnings,
       duplicate: duplicateCheck.isDuplicate ? duplicateCheck.matchedEvent : null,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);

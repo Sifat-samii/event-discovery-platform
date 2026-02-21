@@ -1,39 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { sanitizeText, sanitizeUuid } from "@/lib/security/sanitize";
-import { logApiError } from "@/lib/utils/logger";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
+export const POST = handleRoute<{ id: string }>(
+  {
+    route: "/api/events/[id]/click",
+    action: "track-click",
+    rateLimitKey: "event-click",
+    rateLimitLimit: 120,
+  },
+  async (request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
     const eventId = sanitizeUuid(id);
     if (!eventId) {
       return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
     }
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     const body = await request.json().catch(() => ({}));
     const source = sanitizeText(body.source || "event_detail", 40);
 
-    const { error } = await supabase.from("event_clicks").insert({
+    const { error } = await context.supabase.from("event_clicks").insert({
       event_id: eventId,
-      user_id: user?.id || null,
+      user_id: context.userId || null,
       source,
     });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    logApiError("/api/events/[id]/click", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);

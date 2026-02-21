@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth/roles";
-import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
-import { canTransitionStatus, isValidStatus } from "@/lib/admin/status";
+import { isValidStatus, validateStatusTransition } from "@/lib/admin/status";
+import { sanitizeUuid } from "@/lib/security/sanitize";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const limiter = rateLimit({
-      key: `admin-status:${getClientIp(request)}`,
-      limit: 60,
-      windowMs: 60_000,
-    });
-    if (!limiter.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-
-    const { id } = await params;
-    const supabase = await createClient();
-    const roleCheck = await requireRole(supabase, "admin");
-    if (!roleCheck.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: roleCheck.status });
+export const PATCH = handleRoute<{ id: string }>(
+  {
+    route: "/api/admin/events/[id]/status",
+    action: "admin-update-event-status",
+    requireAuth: true,
+    requiredRole: "admin",
+    rateLimitKey: "admin-status",
+    rateLimitLimit: 60,
+  },
+  async (request: NextRequest, context) => {
+    const { id } = await (context.params as Promise<{ id: string }>);
+    const eventId = sanitizeUuid(id);
+    if (!eventId) {
+      return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
     }
 
     const body = await request.json();
@@ -31,35 +25,33 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing, error: existingError } = await context.supabase
       .from("events")
       .select("status")
-      .eq("id", id)
+      .eq("id", eventId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (existingError || !existing?.status || !isValidStatus(existing.status)) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
-    if (!canTransitionStatus(existing.status, status)) {
+    const transition = validateStatusTransition(existing.status, status, "admin");
+    if (!transition.valid) {
       return NextResponse.json(
-        { error: `Invalid status transition: ${existing.status} -> ${status}` },
+        { error: transition.message },
         { status: 400 }
       );
     }
 
-    const { error } = await supabase
+    const { error } = await context.supabase
       .from("events")
       .update({ status })
-      .eq("id", id);
+      .eq("id", eventId)
+      .is("deleted_at", null);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, status });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, status, correlationId: context.correlationId });
   }
-}
+);

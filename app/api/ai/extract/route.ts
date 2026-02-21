@@ -1,28 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth/roles";
-import { logApiError } from "@/lib/utils/logger";
-import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { sanitizeText } from "@/lib/security/sanitize";
-import { generateEventSlug } from "@/lib/utils/slugify";
+import { ensureUniqueEventSlug } from "@/lib/db/slug";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function POST(request: NextRequest) {
-  try {
-    const limiter = rateLimit({
-      key: `ai-extract:${getClientIp(request)}`,
-      limit: 10,
-      windowMs: 60_000,
-    });
-    if (!limiter.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-
-    const supabase = await createClient();
-    const roleCheck = await requireRole(supabase, "admin");
-    if (!roleCheck.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: roleCheck.status });
-    }
-
+export const POST = handleRoute(
+  {
+    route: "/api/ai/extract",
+    action: "ai-extract-event",
+    requireAuth: true,
+    requiredRole: "admin",
+    rateLimitKey: "ai-extract",
+    rateLimitLimit: 10,
+  },
+  async (request: NextRequest, context) => {
     const body = await request.json();
     const url = sanitizeText(body.url, 400);
     const text = sanitizeText(body.text, 4000);
@@ -40,11 +30,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Create draft event
-    const { data: event, error } = await supabase
+    const { data: event, error } = await context.supabase
       .from("events")
       .insert({
         title: extractedData.title,
-        slug: generateEventSlug(extractedData.title),
+        slug: await ensureUniqueEventSlug(extractedData.title),
         description: extractedData.description,
         status: "draft",
         source_url: url,
@@ -62,11 +52,5 @@ export async function POST(request: NextRequest) {
       event,
       extractedData,
     });
-  } catch (error: any) {
-    logApiError("/api/ai/extract", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);

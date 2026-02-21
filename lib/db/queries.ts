@@ -70,6 +70,7 @@ export async function getEvents(filters?: EventFilters) {
       tags:event_tags_junction(event_tags(*))
     `, { count: "exact" })
     .eq("status", "published")
+    .is("deleted_at", null)
     .gte("end_date", now);
 
   // Apply filters
@@ -173,6 +174,7 @@ export async function getEventById(id: string) {
       tags:event_tags_junction(event_tags(*))
     `)
     .eq("id", id)
+    .is("deleted_at", null)
     .single();
 
   if (error) throw error;
@@ -193,6 +195,7 @@ export async function getEventBySlug(slug: string) {
       tags:event_tags_junction(event_tags(*))
     `)
     .eq("slug", slug)
+    .is("deleted_at", null)
     .eq("status", "published")
     .gte("end_date", new Date().toISOString())
     .maybeSingle();
@@ -213,6 +216,7 @@ export async function getTrendingEvents(limit: number = 10) {
       area:event_areas(*)
     `)
     .eq("status", "published")
+    .is("deleted_at", null)
     .gte("start_date", new Date().toISOString())
     .limit(Math.max(limit * 3, 30));
 
@@ -273,6 +277,7 @@ export async function getSimilarEvents(
       area:event_areas(*)
     `)
     .eq("status", "published")
+    .is("deleted_at", null)
     .gte("end_date", new Date().toISOString())
     .neq("id", eventId)
     .order("start_date", { ascending: true })
@@ -300,7 +305,8 @@ export async function getTrendingScores(eventIds: string[]) {
     supabase
       .from("saved_events")
       .select("event_id")
-      .in("event_id", eventIds),
+      .in("event_id", eventIds)
+      .is("deleted_at", null),
   ]);
 
   const scores: Record<string, number> = {};

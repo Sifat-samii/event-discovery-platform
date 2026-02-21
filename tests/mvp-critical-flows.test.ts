@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeEventQuery } from "../lib/filters/query-normalizer";
 import { toReminderFlags, fromReminderFlags } from "../lib/reminders/preferences";
-import { canTransitionStatus } from "../lib/admin/status";
+import { canTransitionStatus, validateStatusTransition } from "../lib/admin/status";
 import { canTransitionReportStatus } from "../lib/reports/status";
 import {
   normalizeOrganizerEventPayload,
@@ -34,6 +34,14 @@ describe("admin status transitions", () => {
   it("enforces allowed transitions", () => {
     expect(canTransitionStatus("pending", "published")).toBe(true);
     expect(canTransitionStatus("published", "draft")).toBe(false);
+    expect(canTransitionStatus("expired", "archived")).toBe(true);
+    expect(canTransitionStatus("draft", "archived", "organizer")).toBe(false);
+  });
+
+  it("rejects invalid transition payloads", () => {
+    const result = validateStatusTransition("pending", "expired", "admin");
+    expect(result.valid).toBe(false);
+    expect(result.message).toContain("Invalid status transition");
   });
 });
 
