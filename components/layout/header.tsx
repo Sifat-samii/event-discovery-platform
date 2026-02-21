@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import SearchInput from "@/components/ui/search-input";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
+  const [search, setSearch] = useState("");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -35,14 +36,13 @@ export default function Header() {
           Events Dhaka
         </Link>
         <div className="hidden flex-1 md:block">
-          <Input
-            placeholder="Search events, venues, organizers..."
+          <SearchInput
+            value={search}
+            onChange={setSearch}
             className="bg-surface-2"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const value = (e.currentTarget as HTMLInputElement).value.trim();
-                router.push(value ? `/browse?search=${encodeURIComponent(value)}` : "/browse");
-              }
+            onSubmit={() => {
+              const value = search.trim();
+              router.push(value ? `/browse?search=${encodeURIComponent(value)}` : "/browse");
             }}
           />
         </div>

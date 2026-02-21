@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/roles";
-
-const allowedStatuses = new Set([
-  "draft",
-  "pending",
-  "published",
-  "expired",
-  "archived",
-]);
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { canTransitionStatus, isValidStatus } from "@/lib/admin/status";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const limiter = rateLimit({
+      key: `admin-status:${getClientIp(request)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { id } = await params;
     const supabase = await createClient();
     const roleCheck = await requireRole(supabase, "admin");
@@ -24,8 +27,23 @@ export async function PATCH(
 
     const body = await request.json();
     const status = String(body.status || "");
-    if (!allowedStatuses.has(status)) {
+    if (!isValidStatus(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("events")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError || !existing?.status || !isValidStatus(existing.status)) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+    if (!canTransitionStatus(existing.status, status)) {
+      return NextResponse.json(
+        { error: `Invalid status transition: ${existing.status} -> ${status}` },
+        { status: 400 }
+      );
     }
 
     const { error } = await supabase

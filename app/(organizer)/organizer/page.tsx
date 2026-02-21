@@ -6,6 +6,7 @@ import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import EventStepperForm from "@/components/organizer/event-stepper-form";
+import { useToast } from "@/components/ui/toast";
 
 export default function OrganizerPortal() {
   const [user, setUser] = useState<any>(null);
@@ -14,6 +15,7 @@ export default function OrganizerPortal() {
   const [loading, setLoading] = useState(true);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const { pushToast } = useToast();
 
   const fetchOrganizer = useCallback(async (userId: string) => {
     try {
@@ -60,6 +62,24 @@ export default function OrganizerPortal() {
       setLoading(false);
     }
   }, [supabase]);
+
+  const handleSubmitDraft = async (draft: any) => {
+    const response = await fetch("/api/organizer/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Could not submit event");
+    }
+    if (user?.id) await fetchEvents(user.id);
+    pushToast({
+      title: "Event submitted",
+      description: "Your event is now pending admin review.",
+      type: "success",
+    });
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -152,7 +172,10 @@ export default function OrganizerPortal() {
               </Button>
               {showSubmitForm ? (
                 <div className="mb-6">
-                  <EventStepperForm onClose={() => setShowSubmitForm(false)} />
+                  <EventStepperForm
+                    onClose={() => setShowSubmitForm(false)}
+                    onSubmit={handleSubmitDraft}
+                  />
                 </div>
               ) : null}
               {events.length > 0 ? (

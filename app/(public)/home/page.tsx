@@ -3,7 +3,27 @@ import EventCard from "@/components/events/event-card";
 import AppShell from "@/components/layout/app-shell";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import Chip from "@/components/ui/chip";
+import QuickChips from "@/components/events/quick-chips";
+import type { Metadata } from "next";
+import { createMetadata } from "@/lib/metadata/defaults";
+
+type HomeEvent = Awaited<ReturnType<typeof getTrendingEvents>>[number];
+type HomeCategory = { id: string; name: string; slug: string };
+
+export const metadata: Metadata = createMetadata({
+  title: "Discover Cultural Events in Dhaka | Events Dhaka",
+  description:
+    "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+  alternates: {
+    canonical: "/home",
+  },
+  openGraph: {
+    title: "Discover Cultural Events in Dhaka | Events Dhaka",
+    description:
+      "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+    url: "/home",
+  },
+});
 
 export default async function HomePage() {
   // Fetch data (in production, these would be real queries)
@@ -12,7 +32,7 @@ export default async function HomePage() {
 
   // Get this weekend events (simplified - would need proper date logic)
   const thisWeekendEvents = trendingEvents.slice(0, 6);
-  const freeEvents = trendingEvents.filter((e: any) => e.price_type === "free").slice(0, 6);
+  const freeEvents = trendingEvents.filter((e: HomeEvent) => e?.price_type === "free").slice(0, 6);
   const newlyAdded = trendingEvents.slice(0, 6);
 
   return (
@@ -35,16 +55,7 @@ export default async function HomePage() {
                 <Button variant="outline" size="lg">Submit Event</Button>
               </Link>
             </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Chip label="All" active />
-              <Chip label="Tonight" />
-              <Chip label="This Weekend" />
-              <Chip label="Free" />
-              <Chip label="Music" />
-              <Chip label="Workshop" />
-              <Chip label="Exhibition" />
-              <Chip label="Theatre" />
-            </div>
+            <QuickChips />
           </div>
         </section>
 
@@ -57,7 +68,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trendingEvents.map((event: any) => (
+            {trendingEvents.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
@@ -73,7 +84,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {thisWeekendEvents.map((event: any) => (
+              {thisWeekendEvents.map((event: HomeEvent) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
@@ -89,7 +100,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {freeEvents.map((event: any) => (
+            {freeEvents.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
@@ -100,7 +111,7 @@ export default async function HomePage() {
           <div className="page-wrap">
             <h2 className="text-2xl font-bold mb-6">Browse by Category</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {categories.slice(0, 12).map((category: any) => (
+              {categories.slice(0, 12).map((category: HomeCategory) => (
                 <Link
                   key={category.id}
                   href={`/browse?category=${category.slug}`}
@@ -122,7 +133,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {newlyAdded.map((event: any) => (
+            {newlyAdded.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>

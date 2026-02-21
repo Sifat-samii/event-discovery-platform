@@ -3,9 +3,9 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 
 // Event queries
 export type EventFilters = {
-  category?: string;
+  category?: string | string[];
   subcategory?: string;
-  area?: string;
+  area?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   priceType?: "free" | "paid";
@@ -40,6 +40,19 @@ async function resolveIdBySlug(
   return data?.id;
 }
 
+async function resolveIdsBySlugList(
+  table: "event_categories" | "event_areas",
+  candidates: string[]
+) {
+  const directIds = candidates.filter((candidate) => isUuid(candidate));
+  const slugs = candidates.filter((candidate) => !isUuid(candidate));
+  if (!slugs.length) return directIds;
+  const supabase = await createClient();
+  const { data } = await supabase.from(table).select("id, slug").in("slug", slugs);
+  const resolved = (data || []).map((item: any) => item.id as string);
+  return [...new Set([...directIds, ...resolved])];
+}
+
 export async function getEvents(filters?: EventFilters) {
   if (!hasSupabaseEnv()) {
     return { data: [], error: null, count: 0 } as any;
@@ -61,8 +74,13 @@ export async function getEvents(filters?: EventFilters) {
 
   // Apply filters
   if (filters?.category) {
-    const categoryId = await resolveIdBySlug("event_categories", filters.category);
-    if (categoryId) query = query.eq("category_id", categoryId);
+    if (Array.isArray(filters.category)) {
+      const categoryIds = await resolveIdsBySlugList("event_categories", filters.category);
+      if (categoryIds.length) query = query.in("category_id", categoryIds);
+    } else {
+      const categoryId = await resolveIdBySlug("event_categories", filters.category);
+      if (categoryId) query = query.eq("category_id", categoryId);
+    }
   }
   if (filters?.subcategory) {
     const subcategoryId = await resolveIdBySlug(
@@ -72,8 +90,13 @@ export async function getEvents(filters?: EventFilters) {
     if (subcategoryId) query = query.eq("subcategory_id", subcategoryId);
   }
   if (filters?.area) {
-    const areaId = await resolveIdBySlug("event_areas", filters.area);
-    if (areaId) query = query.eq("area_id", areaId);
+    if (Array.isArray(filters.area)) {
+      const areaIds = await resolveIdsBySlugList("event_areas", filters.area);
+      if (areaIds.length) query = query.in("area_id", areaIds);
+    } else {
+      const areaId = await resolveIdBySlug("event_areas", filters.area);
+      if (areaId) query = query.eq("area_id", areaId);
+    }
   }
   if (filters?.dateFrom) {
     query = query.gte("start_date", filters.dateFrom);
@@ -181,7 +204,6 @@ export async function getEventBySlug(slug: string) {
 export async function getTrendingEvents(limit: number = 10) {
   if (!hasSupabaseEnv()) return [];
   const supabase = await createClient();
-  // This is a simplified version - in production, you'd join with clicks/saves
   const { data, error } = await supabase
     .from("events")
     .select(`
@@ -192,11 +214,14 @@ export async function getTrendingEvents(limit: number = 10) {
     `)
     .eq("status", "published")
     .gte("start_date", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(Math.max(limit * 3, 30));
 
   if (error) throw error;
-  return data;
+  const scores = await getTrendingScores((data || []).map((item: any) => item.id));
+  const ranked = [...(data || [])].sort(
+    (a: any, b: any) => (scores[b.id] || 0) - (scores[a.id] || 0)
+  );
+  return ranked.slice(0, limit);
 }
 
 export async function getCategories() {
@@ -259,4 +284,32 @@ export async function getSimilarEvents(
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+export async function getTrendingScores(eventIds: string[]) {
+  if (!eventIds.length || !hasSupabaseEnv()) return {} as Record<string, number>;
+  const supabase = await createClient();
+  const windowStart = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: clicks }, { data: saves }] = await Promise.all([
+    supabase
+      .from("event_clicks")
+      .select("event_id")
+      .in("event_id", eventIds)
+      .gte("clicked_at", windowStart),
+    supabase
+      .from("saved_events")
+      .select("event_id")
+      .in("event_id", eventIds),
+  ]);
+
+  const scores: Record<string, number> = {};
+  for (const id of eventIds) scores[id] = 0;
+  for (const click of clicks || []) {
+    scores[click.event_id] = (scores[click.event_id] || 0) + 1;
+  }
+  for (const save of saves || []) {
+    scores[save.event_id] = (scores[save.event_id] || 0) + 4;
+  }
+  return scores;
 }

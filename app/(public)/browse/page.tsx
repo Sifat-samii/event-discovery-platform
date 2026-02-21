@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import EventCard from "@/components/events/event-card";
 import AppShell from "@/components/layout/app-shell";
@@ -8,22 +8,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Skeleton from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
-import Pagination from "@/components/ui/pagination";
+import BottomSheet from "@/components/ui/bottom-sheet";
+import { useToast } from "@/components/ui/toast";
+import SearchInput from "@/components/ui/search-input";
+import Chip from "@/components/ui/chip";
 
 type SelectOption = { id: string; name: string; slug: string };
+type DatePreset = "today" | "weekend" | "custom" | "";
+const PAGE_LIMIT = 12;
 
 function BrowsePageContent() {
+  const { pushToast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const initialPage = parseInt(searchParams.get("page") || "1", 10);
-  const initialLimit = parseInt(searchParams.get("limit") || "12", 10);
+  const parseList = (value: string | null) =>
+    value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
 
   const [events, setEvents] = useState<any[]>([]);
+  const [error, setError] = useState<string>("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [pagination, setPagination] = useState({
-    page: initialPage,
-    limit: initialLimit,
+    page: parseInt(searchParams.get("page") || "1", 10),
+    limit: PAGE_LIMIT,
     total: 0,
     totalPages: 1,
   });
@@ -31,39 +41,58 @@ function BrowsePageContent() {
   const [subcategories, setSubcategories] = useState<SelectOption[]>([]);
   const [areas, setAreas] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState(() => ({
     search: searchParams.get("search") || "",
-    category: searchParams.get("category") || "",
+    categories: parseList(searchParams.get("categories") || searchParams.get("category")),
     subcategory: searchParams.get("subcategory") || "",
-    area: searchParams.get("area") || "",
+    areas: parseList(searchParams.get("areas") || searchParams.get("area")),
     dateFrom: searchParams.get("date_from") || "",
     dateTo: searchParams.get("date_to") || "",
+    datePreset: (searchParams.get("date_preset") as DatePreset) || "",
     timeSlot: searchParams.get("time_slot") || "",
     priceType: searchParams.get("price_type") || "",
     sort: searchParams.get("sort") || "soonest",
     thisWeekend: searchParams.get("this_weekend") === "true",
     verifiedOnly: searchParams.get("verified_only") === "true",
-  });
+  }));
+  const [draftFilters, setDraftFilters] = useState(filters);
+  const stateKey = useMemo(
+    () => `browse_state_${JSON.stringify({ filters, page: pagination.page })}`,
+    [filters, pagination.page]
+  );
+  const activeFilterCount = useMemo(
+    () =>
+      Number(Boolean(filters.search)) +
+      filters.categories.length +
+      Number(Boolean(filters.subcategory)) +
+      filters.areas.length +
+      Number(Boolean(filters.datePreset || filters.dateFrom || filters.dateTo)) +
+      Number(Boolean(filters.timeSlot)) +
+      Number(Boolean(filters.priceType)) +
+      Number(Boolean(filters.verifiedOnly)),
+    [filters]
+  );
 
   const syncUrl = useCallback(
     (nextFilters: typeof filters, page: number) => {
       const params = new URLSearchParams();
       if (nextFilters.search) params.set("search", nextFilters.search);
-      if (nextFilters.category) params.set("category", nextFilters.category);
+      if (nextFilters.categories.length) params.set("categories", nextFilters.categories.join(","));
       if (nextFilters.subcategory) params.set("subcategory", nextFilters.subcategory);
-      if (nextFilters.area) params.set("area", nextFilters.area);
+      if (nextFilters.areas.length) params.set("areas", nextFilters.areas.join(","));
       if (nextFilters.dateFrom) params.set("date_from", nextFilters.dateFrom);
       if (nextFilters.dateTo) params.set("date_to", nextFilters.dateTo);
+      if (nextFilters.datePreset) params.set("date_preset", nextFilters.datePreset);
       if (nextFilters.timeSlot) params.set("time_slot", nextFilters.timeSlot);
       if (nextFilters.priceType) params.set("price_type", nextFilters.priceType);
       if (nextFilters.sort) params.set("sort", nextFilters.sort);
       if (nextFilters.thisWeekend) params.set("this_weekend", "true");
       if (nextFilters.verifiedOnly) params.set("verified_only", "true");
       params.set("page", String(page));
-      params.set("limit", String(pagination.limit));
+      params.set("limit", String(PAGE_LIMIT));
       router.replace(`${pathname}?${params.toString()}`);
     },
-    [pathname, pagination.limit, router]
+    [pathname, router]
   );
 
   const fetchFilterOptions = useCallback(async () => {
@@ -76,40 +105,55 @@ function BrowsePageContent() {
       setCategories(categoryList);
       setAreas((data.areas || []) as SelectOption[]);
 
-      if (filters.category) {
-        const selected = categoryList.find((c) => c.slug === filters.category);
+      if (filters.categories.length === 1) {
+        const selected = categoryList.find((c) => c.slug === filters.categories[0]);
         setSubcategories(selected?.subcategories || []);
+      } else {
+        setSubcategories([]);
       }
     } catch (error) {
       console.error("Failed to load filter options", error);
     }
-  }, [filters.category]);
+  }, [filters.categories]);
 
   const fetchEvents = useCallback(
-    async (page: number) => {
-      setLoading(true);
+    async (page: number, append = false) => {
+      if (!append) setLoading(true);
+      setError("");
       try {
         const params = new URLSearchParams();
         if (filters.search) params.append("search", filters.search);
-        if (filters.category) params.append("category", filters.category);
+        if (filters.categories.length) params.append("categories", filters.categories.join(","));
         if (filters.subcategory) params.append("subcategory", filters.subcategory);
-        if (filters.area) params.append("area", filters.area);
+        if (filters.areas.length) params.append("areas", filters.areas.join(","));
         if (filters.dateFrom) params.append("date_from", filters.dateFrom);
         if (filters.dateTo) params.append("date_to", filters.dateTo);
+        if (filters.datePreset) params.append("date_preset", filters.datePreset);
         if (filters.timeSlot) params.append("time_slot", filters.timeSlot);
         if (filters.priceType) params.append("price_type", filters.priceType);
         if (filters.sort) params.append("sort", filters.sort);
         if (filters.thisWeekend) params.append("this_weekend", "true");
         if (filters.verifiedOnly) params.append("verified_only", "true");
         params.append("page", String(page));
-        params.append("limit", String(pagination.limit));
+        params.append("limit", String(PAGE_LIMIT));
 
         const response = await fetch(`/api/events?${params}`);
+        if (!response.ok) throw new Error("Failed to load events");
         const data = await response.json();
-        setEvents(data.events || []);
+        const incoming = data.events || [];
+        let mergedEvents: any[] = incoming;
+        setEvents((prev) => {
+          if (!append) {
+            mergedEvents = incoming;
+            return incoming;
+          }
+          const seen = new Set(prev.map((item: any) => item.id));
+          mergedEvents = [...prev, ...incoming.filter((item: any) => !seen.has(item.id))];
+          return mergedEvents;
+        });
         const nextPagination = data.pagination || {
           page,
-          limit: pagination.limit,
+          limit: PAGE_LIMIT,
           total: 0,
           totalPages: 1,
         };
@@ -121,13 +165,22 @@ function BrowsePageContent() {
             ? prev
             : nextPagination
         );
-      } catch (error) {
+        window.sessionStorage.setItem(
+          stateKey,
+          JSON.stringify({
+            events: mergedEvents,
+            pagination: data.pagination || { page, limit: PAGE_LIMIT, total: 0, totalPages: 1 },
+          })
+        );
+      } catch (error: any) {
         console.error("Error fetching events:", error);
+        setError(error.message || "Failed to load events");
       } finally {
-        setLoading(false);
+        if (!append) setLoading(false);
+        setLoadingMore(false);
       }
     },
-    [filters, pagination.limit]
+    [filters, stateKey]
   );
 
   useEffect(() => {
@@ -135,19 +188,96 @@ function BrowsePageContent() {
   }, [fetchFilterOptions]);
 
   useEffect(() => {
+    const savedScroll = window.sessionStorage.getItem("browse_scroll");
+    if (savedScroll) window.scrollTo({ top: Number(savedScroll), behavior: "auto" });
+    const onScroll = () => {
+      window.sessionStorage.setItem("browse_scroll", String(window.scrollY));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const cached = window.sessionStorage.getItem(stateKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed?.events?.length) setEvents(parsed.events);
+        if (parsed?.pagination) setPagination(parsed.pagination);
+        setLoading(false);
+      } catch {
+        // ignore cache parse failure
+      }
+    }
     fetchEvents(pagination.page);
     syncUrl(filters, pagination.page);
-  }, [fetchEvents, pagination.page, syncUrl, filters]);
+  }, [fetchEvents, pagination.page, syncUrl, filters, stateKey]);
 
-  const onCategoryChange = (categorySlug: string) => {
-    const selected = categories.find((c) => c.slug === categorySlug) as
-      | (SelectOption & { subcategories?: SelectOption[] })
-      | undefined;
-    setSubcategories(selected?.subcategories || []);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        if (loading || loadingMore) return;
+        if (pagination.page >= pagination.totalPages) return;
+        setLoadingMore(true);
+        const nextPage = pagination.page + 1;
+        setPagination((prev) => ({ ...prev, page: nextPage }));
+        fetchEvents(nextPage, true);
+      },
+      { rootMargin: "120px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [fetchEvents, loading, loadingMore, pagination.page, pagination.totalPages]);
+
+  const toggleMultiValue = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+
+  const applyDatePreset = (preset: DatePreset) => {
+    if (!preset) {
+      setFilters((prev) => ({ ...prev, datePreset: "", dateFrom: "", dateTo: "", thisWeekend: false }));
+      return;
+    }
+    if (preset === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: "today",
+        dateFrom: today,
+        dateTo: today,
+        thisWeekend: false,
+      }));
+      return;
+    }
+    if (preset === "weekend") {
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: "weekend",
+        dateFrom: "",
+        dateTo: "",
+        thisWeekend: true,
+      }));
+      return;
+    }
+    setFilters((prev) => ({ ...prev, datePreset: "custom", thisWeekend: false }));
+  };
+
+  const onCategoryToggle = (categorySlug: string) => {
+    const categoriesNext = toggleMultiValue(filters.categories, categorySlug);
+    let nextSubcategories: SelectOption[] = [];
+    if (categoriesNext.length === 1) {
+      const selected = categories.find((c) => c.slug === categoriesNext[0]) as
+        | (SelectOption & { subcategories?: SelectOption[] })
+        | undefined;
+      nextSubcategories = selected?.subcategories || [];
+    }
+    setSubcategories(nextSubcategories);
     const next = {
       ...filters,
-      category: categorySlug,
-      subcategory: "",
+      categories: categoriesNext,
+      subcategory: categoriesNext.length === 1 ? filters.subcategory : "",
     };
     setFilters(next);
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -157,11 +287,12 @@ function BrowsePageContent() {
     () => () => {
       const reset = {
         search: "",
-        category: "",
+        categories: [] as string[],
         subcategory: "",
-        area: "",
+        areas: [] as string[],
         dateFrom: "",
         dateTo: "",
+        datePreset: "" as DatePreset,
         timeSlot: "",
         priceType: "",
         sort: "soonest",
@@ -176,40 +307,62 @@ function BrowsePageContent() {
     [syncUrl]
   );
 
+  const applyMobileFilters = () => {
+    setFilters(draftFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setMobileFilterOpen(false);
+  };
+
+  const resetMobileFilters = () => {
+    clearFilters();
+    setDraftFilters({
+      ...filters,
+      search: "",
+      categories: [],
+      subcategory: "",
+      areas: [],
+      dateFrom: "",
+      dateTo: "",
+      datePreset: "",
+      timeSlot: "",
+      priceType: "",
+      sort: "soonest",
+      thisWeekend: false,
+      verifiedOnly: false,
+    });
+  };
+
   return (
     <AppShell>
       <div className="min-h-screen py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
-          <aside className="lg:sticky lg:top-24 lg:h-fit lg:w-72 space-y-4">
+          <aside className="hidden lg:sticky lg:top-24 lg:h-fit lg:w-72 lg:block space-y-4">
             <div>
               <h3 className="font-semibold mb-4">Filters</h3>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">Search</label>
-                  <Input
-                    placeholder="Search events..."
+                  <SearchInput
                     value={filters.search}
-                    onChange={(e) => {
-                      setFilters({ ...filters, search: e.target.value });
+                    onChange={(value) => {
+                      setFilters({ ...filters, search: value });
                       setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Category</label>
-                  <select
-                    className="w-full px-3 py-2 border rounded-md bg-background"
-                    value={filters.category}
-                    onChange={(e) => onCategoryChange(e.target.value)}
-                  >
-                    <option value="">All</option>
+                  <div className="flex flex-wrap gap-2">
                     {categories.map((category) => (
-                      <option key={category.id} value={category.slug}>
-                        {category.name}
-                      </option>
+                      <Chip
+                        key={category.id}
+                        label={category.name}
+                        active={filters.categories.includes(category.slug)}
+                        onClick={() => onCategoryToggle(category.slug)}
+                      />
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Subcategory</label>
@@ -220,7 +373,7 @@ function BrowsePageContent() {
                       setFilters({ ...filters, subcategory: e.target.value });
                       setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
-                    disabled={!filters.category}
+                    disabled={filters.categories.length !== 1}
                   >
                     <option value="">All</option>
                     {subcategories.map((subcategory) => (
@@ -232,21 +385,51 @@ function BrowsePageContent() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Area</label>
-                  <select
-                    className="w-full px-3 py-2 border rounded-md bg-background"
-                    value={filters.area}
-                    onChange={(e) => {
-                      setFilters({ ...filters, area: e.target.value });
-                      setPagination((prev) => ({ ...prev, page: 1 }));
-                    }}
-                  >
-                    <option value="">All</option>
+                  <div className="flex flex-wrap gap-2">
                     {areas.map((area) => (
-                      <option key={area.id} value={area.slug}>
-                        {area.name}
-                      </option>
+                      <Chip
+                        key={area.id}
+                        label={area.name}
+                        active={filters.areas.includes(area.slug)}
+                        onClick={() => {
+                          setFilters((prev) => ({
+                            ...prev,
+                            areas: toggleMultiValue(prev.areas, area.slug),
+                          }));
+                          setPagination((prev) => ({ ...prev, page: 1 }));
+                        }}
+                      />
                     ))}
-                  </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date preset</label>
+                  <div className="flex flex-wrap gap-2">
+                    <Chip
+                      label="Today"
+                      active={filters.datePreset === "today"}
+                      onClick={() => {
+                        applyDatePreset("today");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <Chip
+                      label="Weekend"
+                      active={filters.datePreset === "weekend" || filters.thisWeekend}
+                      onClick={() => {
+                        applyDatePreset("weekend");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <Chip
+                      label="Custom"
+                      active={filters.datePreset === "custom"}
+                      onClick={() => {
+                        applyDatePreset("custom");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Date From</label>
@@ -255,8 +438,10 @@ function BrowsePageContent() {
                     value={filters.dateFrom}
                     onChange={(e) => {
                       setFilters({ ...filters, dateFrom: e.target.value });
+                      if (e.target.value) setFilters((prev) => ({ ...prev, datePreset: "custom" }));
                       setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
+                    disabled={filters.datePreset === "today" || filters.datePreset === "weekend"}
                   />
                 </div>
                 <div>
@@ -266,8 +451,10 @@ function BrowsePageContent() {
                     value={filters.dateTo}
                     onChange={(e) => {
                       setFilters({ ...filters, dateTo: e.target.value });
+                      if (e.target.value) setFilters((prev) => ({ ...prev, datePreset: "custom" }));
                       setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
+                    disabled={filters.datePreset === "today" || filters.datePreset === "weekend"}
                   />
                 </div>
                 <div>
@@ -356,10 +543,22 @@ function BrowsePageContent() {
 
           {/* Events Grid */}
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-3xl font-bold">Browse Events</h1>
-              <div className="text-sm text-muted-foreground">
-                {events.length} events found
+              <div className="flex items-center gap-2">
+                <Button
+                  className="lg:hidden"
+                  variant="outline"
+                  onClick={() => {
+                    setDraftFilters(filters);
+                    setMobileFilterOpen(true);
+                  }}
+                >
+                  Filters {activeFilterCount ? `(${activeFilterCount})` : ""}
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  {pagination.total} total
+                </div>
               </div>
             </div>
             {loading ? (
@@ -382,22 +581,99 @@ function BrowsePageContent() {
                 onAction={clearFilters}
               />
             )}
-
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              onPrev={() =>
-                setPagination((prev) => ({ ...prev, page: Math.max(prev.page - 1, 1) }))
-              }
-              onNext={() =>
-                setPagination((prev) => ({
-                  ...prev,
-                  page: Math.min(prev.page + 1, prev.totalPages),
-                }))
-              }
-            />
+            {error ? (
+              <div className="mt-6 rounded-lg border border-danger/40 bg-surface-1 p-4">
+                <p className="text-sm text-danger">{error}</p>
+                <Button
+                  className="mt-3"
+                  variant="outline"
+                  onClick={() => {
+                    fetchEvents(pagination.page);
+                    pushToast({ title: "Retrying fetch..." });
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            <div ref={sentinelRef} className="h-1" />
+            {pagination.page < pagination.totalPages ? (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  variant="outline"
+                  disabled={loadingMore}
+                  onClick={() => {
+                    setLoadingMore(true);
+                    const nextPage = pagination.page + 1;
+                    setPagination((prev) => ({ ...prev, page: nextPage }));
+                    fetchEvents(nextPage, true);
+                  }}
+                >
+                  {loadingMore ? "Loading..." : "Load more"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
+        <BottomSheet
+          open={mobileFilterOpen}
+          onOpenChange={setMobileFilterOpen}
+          title={`Filters${activeFilterCount ? ` (${activeFilterCount})` : ""}`}
+          footer={
+            <div className="flex gap-2">
+              <Button variant="outline" className="w-full" onClick={resetMobileFilters}>
+                Reset
+              </Button>
+              <Button className="w-full" onClick={applyMobileFilters}>
+                Apply
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <SearchInput
+              value={draftFilters.search}
+              onChange={(value) => setDraftFilters((prev) => ({ ...prev, search: value }))}
+            />
+            <div>
+              <p className="mb-2 text-sm font-medium">Categories</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <Chip
+                    key={category.id}
+                    label={category.name}
+                    active={draftFilters.categories.includes(category.slug)}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        categories: toggleMultiValue(prev.categories, category.slug),
+                        subcategory: "",
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {areas.map((area) => (
+                  <Chip
+                    key={area.id}
+                    label={area.name}
+                    active={draftFilters.areas.includes(area.slug)}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        areas: toggleMultiValue(prev.areas, area.slug),
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </BottomSheet>
       </div>
     </AppShell>
   );

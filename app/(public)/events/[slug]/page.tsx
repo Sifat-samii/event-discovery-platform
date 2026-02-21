@@ -8,6 +8,8 @@ import Link from "next/link";
 import EventCard from "@/components/events/event-card";
 import EventActions from "@/components/events/event-actions";
 import type { Metadata } from "next";
+import TagList from "@/components/ui/tag-list";
+import EventViewTracker from "@/components/events/event-view-tracker";
 
 export async function generateMetadata({
   params,
@@ -24,9 +26,13 @@ export async function generateMetadata({
   return {
     title: `${event.title} | Events Dhaka`,
     description: event.description?.slice(0, 160) || "Discover cultural events in Dhaka.",
+    alternates: {
+      canonical: `/events/${event.slug}`,
+    },
     openGraph: {
       title: event.title,
       description: event.description?.slice(0, 160),
+      url: `/events/${event.slug}`,
       images: event.poster_url ? [event.poster_url] : [],
     },
   };
@@ -61,9 +67,21 @@ export default async function EventDetailPage({
     "en-US",
     { hour: "numeric", minute: "2-digit", hour12: true }
   );
+  const highlights = [
+    event.category?.name,
+    event.area?.name ? `${event.area.name} area` : "",
+    event.price_type === "free" ? "Free entry" : "Paid event",
+    event.verified ? "Verified listing" : "",
+  ].filter(Boolean) as string[];
+  const aboutText = event.description || "No event description available yet.";
+  const isAboutLong = aboutText.length > 260;
+  const tagNames = ((event.tags || []) as any[])
+    .map((item) => item?.event_tags?.name)
+    .filter(Boolean);
 
   return (
     <AppShell>
+      <EventViewTracker eventId={event.id} />
       <div className="min-h-screen py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -87,7 +105,12 @@ export default async function EventDetailPage({
             {/* Title and Badges */}
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <h1 className="text-3xl font-bold">{event.title}</h1>
+                <div>
+                  <h1 className="text-3xl font-bold">{event.title}</h1>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Last updated: {new Date(event.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   {event.verified && <Badge>Verified</Badge>}
                   {event.featured && <Badge variant="secondary">Featured</Badge>}
@@ -101,9 +124,27 @@ export default async function EventDetailPage({
             </div>
 
             {/* Description */}
-            <div>
+            <div className="glass-surface rounded-xl p-6">
               <h2 className="text-xl font-semibold mb-2">About</h2>
-              <p className="text-muted-foreground whitespace-pre-line">{event.description}</p>
+              <p className="text-muted-foreground whitespace-pre-line">
+                {isAboutLong ? `${aboutText.slice(0, 260)}...` : aboutText}
+              </p>
+              {isAboutLong ? (
+                <details className="mt-3 text-sm text-muted-foreground">
+                  <summary className="cursor-pointer text-primary">Read full description</summary>
+                  <p className="mt-2 whitespace-pre-line">{aboutText}</p>
+                </details>
+              ) : null}
+              <TagList tags={tagNames} className="mt-4" />
+            </div>
+
+            <div className="glass-surface rounded-xl p-6">
+              <h2 className="mb-3 text-xl font-semibold">Highlights</h2>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {highlights.map((highlight) => (
+                  <li key={highlight}>{highlight}</li>
+                ))}
+              </ul>
             </div>
 
             {/* Event Details */}
@@ -175,10 +216,6 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Last Updated */}
-            <div className="text-sm text-muted-foreground">
-              Last updated: {new Date(event.updated_at).toLocaleDateString()}
-            </div>
           </div>
 
           {/* Sidebar */}
@@ -189,12 +226,16 @@ export default async function EventDetailPage({
             {event.venue_coordinates && (
               <div className="glass-surface rounded-xl p-6">
                 <h3 className="font-semibold mb-4">Location</h3>
-                <div className="aspect-video bg-muted rounded">
-                  {/* Google Maps embed would go here */}
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                    Map View
-                  </div>
-                </div>
+                <a
+                  className="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm hover:bg-accent"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    `${event.venue_name} ${event.venue_address}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in Google Maps
+                </a>
               </div>
             )}
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendReminderEmail } from "@/lib/email/resend";
 import { logApiError } from "@/lib/utils/logger";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 function getDhakaNow() {
   const now = new Date();
@@ -10,6 +11,15 @@ function getDhakaNow() {
 
 export async function POST(request: NextRequest) {
   try {
+    const limiter = rateLimit({
+      key: `reminder-dispatch:${getClientIp(request)}`,
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const authHeader = request.headers.get("authorization");
     const expected = `Bearer ${process.env.CRON_SECRET || ""}`;
     if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -54,15 +64,23 @@ export async function POST(request: NextRequest) {
       const within3h = delta <= 3 * 60 * 60 * 1000 && delta > 2 * 60 * 60 * 1000;
 
       if (reminder.reminder_24h && !reminder.sent_24h && within24h) {
-        await sendReminderEmail(userEmail, event.title, eventStart, "24h");
-        await supabase.from("reminders").update({ sent_24h: true }).eq("id", reminder.id);
-        sentCount += 1;
+        const result = await sendReminderEmail(userEmail, event.title, eventStart, "24h");
+        if (result.ok) {
+          await supabase.from("reminders").update({ sent_24h: true }).eq("id", reminder.id);
+          sentCount += 1;
+        } else {
+          logApiError("/api/reminders/dispatch", new Error(`24h send failed: ${result.error}`));
+        }
       }
 
       if (reminder.reminder_3h && !reminder.sent_3h && within3h) {
-        await sendReminderEmail(userEmail, event.title, eventStart, "3h");
-        await supabase.from("reminders").update({ sent_3h: true }).eq("id", reminder.id);
-        sentCount += 1;
+        const result = await sendReminderEmail(userEmail, event.title, eventStart, "3h");
+        if (result.ok) {
+          await supabase.from("reminders").update({ sent_3h: true }).eq("id", reminder.id);
+          sentCount += 1;
+        } else {
+          logApiError("/api/reminders/dispatch", new Error(`3h send failed: ${result.error}`));
+        }
       }
     }
 

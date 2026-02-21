@@ -1,31 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEvents } from "@/lib/db/queries";
+import { getEvents, getTrendingScores } from "@/lib/db/queries";
 import { logApiError } from "@/lib/utils/logger";
+import { normalizeEventQuery } from "@/lib/filters/query-normalizer";
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const parsedPage = parseInt(searchParams.get("page") || "1", 10);
-    const parsedLimit = parseInt(searchParams.get("limit") || "20", 10);
-    
-    const filters = {
-      category: searchParams.get("category") || undefined,
-      subcategory: searchParams.get("subcategory") || undefined,
-      area: searchParams.get("area") || undefined,
-      dateFrom: searchParams.get("date_from") || undefined,
-      dateTo: searchParams.get("date_to") || undefined,
-      priceType: searchParams.get("price_type") as "free" | "paid" | undefined,
-      timeSlot: searchParams.get("time_slot") as "morning" | "afternoon" | "evening" | "night" | undefined,
-      thisWeekend: searchParams.get("this_weekend") === "true",
-      verifiedOnly: searchParams.get("verified_only") === "true",
-      search: searchParams.get("search") || undefined,
-      sort: searchParams.get("sort") as "soonest" | "trending" | "recent" | undefined,
-      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
-      limit:
-        Number.isFinite(parsedLimit) && parsedLimit > 0 && parsedLimit <= 100
-          ? parsedLimit
-          : 20,
-    };
+    const filters = normalizeEventQuery(request.nextUrl.searchParams);
 
     const { data, error, count } = await getEvents(filters);
 
@@ -33,8 +13,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    let events = data || [];
+    if (filters.sort === "trending") {
+      const scores = await getTrendingScores(events.map((event: any) => event.id));
+      events = [...events].sort(
+        (a: any, b: any) => (scores[b.id] || 0) - (scores[a.id] || 0)
+      );
+    }
+
     return NextResponse.json({
-      events: data || [],
+      events,
       pagination: {
         page: filters.page,
         limit: filters.limit,

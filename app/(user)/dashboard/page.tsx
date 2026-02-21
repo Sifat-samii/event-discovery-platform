@@ -6,12 +6,17 @@ import AppShell from "@/components/layout/app-shell";
 import EventCard from "@/components/events/event-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/toast";
+
+type ReminderPreference = "off" | "24h" | "3h" | "both";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [savedEvents, setSavedEvents] = useState<any[]>([]);
+  const [reminderPrefs, setReminderPrefs] = useState<Record<string, ReminderPreference>>({});
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
+  const { pushToast } = useToast();
 
   const fetchSavedEvents = useCallback(async (userId: string) => {
     try {
@@ -31,6 +36,21 @@ export default function DashboardPage() {
 
       if (error) throw error;
       setSavedEvents(data || []);
+      if (data?.length) {
+        const eventIds = data.map((item: any) => item.event_id).join(",");
+        const reminderResponse = await fetch(`/api/reminders?event_ids=${encodeURIComponent(eventIds)}`);
+        if (reminderResponse.ok) {
+          const remindersBody = await reminderResponse.json();
+          const nextPrefs: Record<string, ReminderPreference> = {};
+          for (const reminder of remindersBody.reminders || []) {
+            if (reminder.reminder_24h && reminder.reminder_3h) nextPrefs[reminder.event_id] = "both";
+            else if (reminder.reminder_24h) nextPrefs[reminder.event_id] = "24h";
+            else if (reminder.reminder_3h) nextPrefs[reminder.event_id] = "3h";
+            else nextPrefs[reminder.event_id] = "off";
+          }
+          setReminderPrefs(nextPrefs);
+        }
+      }
     } catch (error) {
       console.error("Error fetching saved events:", error);
     } finally {
@@ -82,6 +102,34 @@ export default function DashboardPage() {
   const upcoming = savedEvents.filter(
     (item: any) => new Date(item.event?.start_date || 0) >= now
   );
+
+  const updateReminder = async (eventId: string, nextPref: ReminderPreference) => {
+    const previous = reminderPrefs[eventId] || "24h";
+    setReminderPrefs((prev) => ({ ...prev, [eventId]: nextPref }));
+    const reminder_24h = nextPref === "24h" || nextPref === "both";
+    const reminder_3h = nextPref === "3h" || nextPref === "both";
+    try {
+      const response = await fetch("/api/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_id: eventId, reminder_24h, reminder_3h }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setReminderPrefs((prev) => ({ ...prev, [eventId]: previous }));
+        pushToast({
+          title: "Failed to update reminder",
+          description: body.error || "Please try again.",
+          type: "danger",
+        });
+        return;
+      }
+      pushToast({ title: "Reminder scheduled", type: "success" });
+    } catch {
+      setReminderPrefs((prev) => ({ ...prev, [eventId]: previous }));
+      pushToast({ title: "Network error", description: "Could not update reminder.", type: "danger" });
+    }
+  };
   const past = savedEvents.filter(
     (item: any) => new Date(item.event?.start_date || 0) < now
   );
@@ -101,9 +149,28 @@ export default function DashboardPage() {
 
           <TabsContent value="saved" className="mt-6">
             {savedEvents.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {savedEvents.map((item: any) => (
-                  <EventCard key={item.id} event={item.event} />
+                  <div key={item.id} className="space-y-2">
+                    <EventCard event={item.event} />
+                    <div className="rounded-lg border border-border bg-surface-1 p-3">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        Reminder
+                      </label>
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        value={reminderPrefs[item.event_id] || "24h"}
+                        onChange={(e) =>
+                          updateReminder(item.event_id, e.target.value as ReminderPreference)
+                        }
+                      >
+                        <option value="off">Off</option>
+                        <option value="24h">24h</option>
+                        <option value="3h">3h</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -120,7 +187,26 @@ export default function DashboardPage() {
             {upcoming.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {upcoming.map((item: any) => (
-                  <EventCard key={item.id} event={item.event} />
+                  <div key={item.id} className="space-y-2">
+                    <EventCard event={item.event} />
+                    <div className="rounded-lg border border-border bg-surface-1 p-3">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        Reminder
+                      </label>
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        value={reminderPrefs[item.event_id] || "24h"}
+                        onChange={(e) =>
+                          updateReminder(item.event_id, e.target.value as ReminderPreference)
+                        }
+                      >
+                        <option value="off">Off</option>
+                        <option value="24h">24h</option>
+                        <option value="3h">3h</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { sanitizeText } from "@/lib/security/sanitize";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const limiter = rateLimit({
+      key: `report:${getClientIp(request)}`,
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { id } = await params;
     const supabase = await createClient();
     const {
@@ -13,8 +24,8 @@ export async function POST(
     } = await supabase.auth.getUser();
 
     const body = await request.json();
-    const reason = String(body.reason || "").trim();
-    const description = String(body.description || "").trim() || null;
+    const reason = sanitizeText(body.reason, 120);
+    const description = sanitizeText(body.description, 800) || null;
 
     if (!reason) {
       return NextResponse.json({ error: "Reason is required" }, { status: 400 });

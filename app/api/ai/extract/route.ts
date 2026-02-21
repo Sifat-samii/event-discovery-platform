@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/roles";
 import { logApiError } from "@/lib/utils/logger";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { sanitizeText } from "@/lib/security/sanitize";
+import { generateEventSlug } from "@/lib/utils/slugify";
 
 export async function POST(request: NextRequest) {
   try {
+    const limiter = rateLimit({
+      key: `ai-extract:${getClientIp(request)}`,
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const supabase = await createClient();
     const roleCheck = await requireRole(supabase, "admin");
     if (!roleCheck.authorized) {
@@ -12,7 +24,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url, text } = body;
+    const url = sanitizeText(body.url, 400);
+    const text = sanitizeText(body.text, 4000);
 
     // Placeholder AI extraction
     // In production, this would use OpenAI API to extract structured data
@@ -31,7 +44,7 @@ export async function POST(request: NextRequest) {
       .from("events")
       .insert({
         title: extractedData.title,
-        slug: extractedData.title.toLowerCase().replace(/\s+/g, "-"),
+        slug: generateEventSlug(extractedData.title),
         description: extractedData.description,
         status: "draft",
         source_url: url,
