@@ -1,27 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    if (typeof window === "undefined") {
-      return new Proxy(
-        {},
-        {
-          get() {
-            throw new Error(
-              "Supabase client unavailable during prerender: missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
-            );
-          },
-        }
-      ) as any;
-    }
-
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
-    );
-  }
+  const { url, anonKey } = getSupabaseEnv();
 
   return createBrowserClient(url, anonKey);
 }

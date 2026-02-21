@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
 
 // Event queries
 export type EventFilters = {
@@ -40,6 +41,9 @@ async function resolveIdBySlug(
 }
 
 export async function getEvents(filters?: EventFilters) {
+  if (!hasSupabaseEnv()) {
+    return { data: [], error: null, count: 0 } as any;
+  }
   const supabase = await createClient();
   const now = new Date().toISOString();
   let query = supabase
@@ -133,6 +137,7 @@ export async function getEvents(filters?: EventFilters) {
 }
 
 export async function getEventById(id: string) {
+  if (!hasSupabaseEnv()) return null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("events")
@@ -152,6 +157,7 @@ export async function getEventById(id: string) {
 }
 
 export async function getEventBySlug(slug: string) {
+  if (!hasSupabaseEnv()) return null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("events")
@@ -173,6 +179,7 @@ export async function getEventBySlug(slug: string) {
 }
 
 export async function getTrendingEvents(limit: number = 10) {
+  if (!hasSupabaseEnv()) return [];
   const supabase = await createClient();
   // This is a simplified version - in production, you'd join with clicks/saves
   const { data, error } = await supabase
@@ -193,6 +200,7 @@ export async function getTrendingEvents(limit: number = 10) {
 }
 
 export async function getCategories() {
+  if (!hasSupabaseEnv()) return [];
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("event_categories")
@@ -207,6 +215,7 @@ export async function getCategories() {
 }
 
 export async function getAreas() {
+  if (!hasSupabaseEnv()) return [];
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("event_areas")
@@ -228,6 +237,7 @@ export async function getSimilarEvents(
   areaId?: string | null,
   limit: number = 4
 ) {
+  if (!hasSupabaseEnv()) return [];
   const supabase = await createClient();
   let query = supabase
     .from("events")
