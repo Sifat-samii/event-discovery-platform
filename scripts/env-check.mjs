@@ -19,14 +19,17 @@ function loadDotEnvLocal() {
 loadDotEnvLocal();
 
 const required = [
+  "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
 
-const missing = required.filter((key) => !process.env[key]);
-if (missing.length > 0) {
-  console.error("DB check failed. Missing env vars:", missing.join(", "));
+const missing = required.filter((key) => !process.env[key] || !String(process.env[key]).trim());
+
+if (missing.length) {
+  console.error("[env-check] Missing required env vars:", missing.join(", "));
   process.exit(1);
 }
 
-console.log("DB check passed.");
+console.log("[env-check] Required environment variables are present.");
+

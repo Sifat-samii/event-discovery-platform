@@ -10,9 +10,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "env:check": "node scripts/env-check.mjs",
     "db:check": "node scripts/db-check.mjs",
     "seed:check": "node scripts/seed-check.mjs",
-    "release:check": "npm run build && npm run typecheck && npm run lint && npm run test && npm run db:check && npm run seed:check"
+    "migration:check": "node scripts/migration-check.mjs",
+    "release:check": "npm run build && npm run typecheck && npm run lint && npm run test && npm run env:check && npm run db:check && npm run seed:check && npm run migration:check"
   },
   "keywords": [],
   "author": "",
