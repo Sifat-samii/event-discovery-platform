@@ -8,11 +8,13 @@ type ClientLogPayload = {
 };
 
 export function logClientError(payload: ClientLogPayload) {
+  const safePayload = payload && typeof payload === "object" ? payload : { message: "Unknown client error" };
   const body = {
-    ...payload,
-    source: payload.source || payload.scope || "client",
+    ...safePayload,
+    source: safePayload.source || safePayload.scope || "client",
     timestamp: new Date().toISOString(),
   };
-  console.error("[client-error]", body);
+  // Keep visibility in dev without triggering Next.js console error overlay noise.
+  console.warn("[client-error]", body);
 }
 
