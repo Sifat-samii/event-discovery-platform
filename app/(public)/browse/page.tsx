@@ -146,8 +146,12 @@ function BrowsePageContent() {
         params.append("limit", String(PAGE_LIMIT));
 
         const response = await fetch(`/api/events?${params}`);
-        if (!response.ok) throw new Error("Failed to load events");
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          // Treat API non-2xx as handled UI state, not client exception telemetry.
+          setError(data?.error || "Failed to load events");
+          return;
+        }
         const incoming = data.events || [];
         let mergedEvents: any[] = incoming;
         setEvents((prev) => {
@@ -183,7 +187,7 @@ function BrowsePageContent() {
       } catch (error: any) {
         logClientError({
           scope: "browse",
-          message: "Failed to fetch events",
+          message: "Network failure while fetching events",
           error: error instanceof Error ? error.message : String(error),
         });
         setError(error?.message || "Failed to load events");
