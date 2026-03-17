@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEvents } from "@/lib/db/queries";
+import { getEvents, getTrendingScores } from "@/lib/db/queries";
+import { normalizeEventQuery } from "@/lib/filters/query-normalizer";
+import { paginatedResponse } from "@/lib/api/pagination";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    
-    const filters = {
-      category: searchParams.get("category") || undefined,
-      subcategory: searchParams.get("subcategory") || undefined,
-      area: searchParams.get("area") || undefined,
-      dateFrom: searchParams.get("date_from") || undefined,
-      dateTo: searchParams.get("date_to") || undefined,
-      priceType: searchParams.get("price_type") as "free" | "paid" | undefined,
-      timeSlot: searchParams.get("time_slot") as "morning" | "afternoon" | "evening" | "night" | undefined,
-      thisWeekend: searchParams.get("this_weekend") === "true",
-      search: searchParams.get("search") || undefined,
-      sort: searchParams.get("sort") as "soonest" | "trending" | "recent" | undefined,
-      page: parseInt(searchParams.get("page") || "1"),
-      limit: parseInt(searchParams.get("limit") || "20"),
-    };
+export const GET = handleRoute(
+  {
+    route: "/api/events",
+    action: "list-public-events",
+    rateLimitKey: "events-list",
+    rateLimitLimit: 180,
+  },
+  async (request: NextRequest) => {
+    const filters = normalizeEventQuery(request.nextUrl.searchParams);
 
     const { data, error, count } = await getEvents(filters);
 
@@ -26,19 +20,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      events: data || [],
-      pagination: {
+    let events = data || [];
+    if (filters.sort === "trending") {
+      const scores = await getTrendingScores(events.map((event: any) => event.id));
+      events = [...events].sort(
+        (a: any, b: any) => (scores[b.id] || 0) - (scores[a.id] || 0)
+      );
+    }
+
+    const total = count || 0;
+    return NextResponse.json(
+      paginatedResponse({
+        data: events,
+        total,
         page: filters.page,
         limit: filters.limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / filters.limit),
-      },
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
+        extra: {
+          // Keep backward compatibility for existing clients.
+          events,
+          pagination: {
+            page: filters.page,
+            limit: filters.limit,
+            total,
+            totalPages: Math.ceil(total / filters.limit),
+          },
+        },
+      })
     );
   }
-}
+);

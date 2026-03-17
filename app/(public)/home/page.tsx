@@ -1,9 +1,29 @@
 import { getTrendingEvents, getCategories } from "@/lib/db/queries";
 import EventCard from "@/components/events/event-card";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/app-shell";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import QuickChips from "@/components/events/quick-chips";
+import type { Metadata } from "next";
+import { createMetadata } from "@/lib/metadata/defaults";
+
+type HomeEvent = Awaited<ReturnType<typeof getTrendingEvents>>[number];
+type HomeCategory = { id: string; name: string; slug: string };
+
+export const metadata: Metadata = createMetadata({
+  title: "Discover Cultural Events in Dhaka | Events Dhaka",
+  description:
+    "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+  alternates: {
+    canonical: "/home",
+  },
+  openGraph: {
+    title: "Discover Cultural Events in Dhaka | Events Dhaka",
+    description:
+      "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+    url: "/home",
+  },
+});
 
 export default async function HomePage() {
   // Fetch data (in production, these would be real queries)
@@ -12,16 +32,15 @@ export default async function HomePage() {
 
   // Get this weekend events (simplified - would need proper date logic)
   const thisWeekendEvents = trendingEvents.slice(0, 6);
-  const freeEvents = trendingEvents.filter((e: any) => e.price_type === "free").slice(0, 6);
+  const freeEvents = trendingEvents.filter((e: HomeEvent) => e?.price_type === "free").slice(0, 6);
   const newlyAdded = trendingEvents.slice(0, 6);
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen">
+    <AppShell>
+      <div className="min-h-screen py-6">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-primary/10 to-background py-16">
-          <div className="container mx-auto px-4 text-center">
+        <section className="rounded-xl bg-gradient-to-b from-primary/10 to-surface-1 py-12">
+          <div className="page-wrap text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               Discover Cultural Events in Dhaka
             </h1>
@@ -36,11 +55,12 @@ export default async function HomePage() {
                 <Button variant="outline" size="lg">Submit Event</Button>
               </Link>
             </div>
+            <QuickChips />
           </div>
         </section>
 
         {/* Trending This Week */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Trending This Week</h2>
             <Link href="/browse?sort=trending">
@@ -48,15 +68,15 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trendingEvents.map((event: any) => (
+            {trendingEvents.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
         </section>
 
         {/* This Weekend */}
-        <section className="py-12 bg-muted/50">
-          <div className="container mx-auto px-4">
+        <section className="rounded-xl bg-surface-1 py-12">
+          <div className="page-wrap">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">This Weekend</h2>
               <Link href="/browse?this_weekend=true">
@@ -64,7 +84,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {thisWeekendEvents.map((event: any) => (
+              {thisWeekendEvents.map((event: HomeEvent) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
@@ -72,7 +92,7 @@ export default async function HomePage() {
         </section>
 
         {/* Free Events */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Free Events</h2>
             <Link href="/browse?price_type=free">
@@ -80,18 +100,18 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {freeEvents.map((event: any) => (
+            {freeEvents.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
         </section>
 
         {/* Categories */}
-        <section className="py-12 bg-muted/50">
-          <div className="container mx-auto px-4">
+        <section className="rounded-xl bg-surface-1 py-12">
+          <div className="page-wrap">
             <h2 className="text-2xl font-bold mb-6">Browse by Category</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {categories.slice(0, 12).map((category: any) => (
+              {categories.slice(0, 12).map((category: HomeCategory) => (
                 <Link
                   key={category.id}
                   href={`/browse?category=${category.slug}`}
@@ -105,7 +125,7 @@ export default async function HomePage() {
         </section>
 
         {/* Newly Added */}
-        <section className="py-12 container mx-auto px-4">
+        <section className="py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Newly Added</h2>
             <Link href="/browse?sort=recent">
@@ -113,13 +133,12 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {newlyAdded.map((event: any) => (
+            {newlyAdded.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+      </div>
+    </AppShell>
   );
 }

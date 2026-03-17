@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { sanitizeText } from "@/lib/security/sanitize";
+import { ensureUniqueEventSlug } from "@/lib/db/slug";
+import { handleRoute } from "@/lib/api/handle-route";
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // TODO: Check admin role
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const POST = handleRoute(
+  {
+    route: "/api/ai/extract",
+    action: "ai-extract-event",
+    requireAuth: true,
+    requiredRole: "admin",
+    rateLimitKey: "ai-extract",
+    rateLimitLimit: 10,
+  },
+  async (request: NextRequest, context) => {
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
-
-    const body = await request.json();
-    const { url, text } = body;
+    const url = sanitizeText(body.url, 400);
+    const text = sanitizeText(body.text, 4000);
 
     // Placeholder AI extraction
     // In production, this would use OpenAI API to extract structured data
@@ -29,11 +33,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Create draft event
-    const { data: event, error } = await supabase
+    const { data: event, error } = await context.supabase
       .from("events")
       .insert({
         title: extractedData.title,
-        slug: extractedData.title.toLowerCase().replace(/\s+/g, "-"),
+        slug: await ensureUniqueEventSlug(extractedData.title),
         description: extractedData.description,
         status: "draft",
         source_url: url,
@@ -51,10 +55,5 @@ export async function POST(request: NextRequest) {
       event,
       extractedData,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);
