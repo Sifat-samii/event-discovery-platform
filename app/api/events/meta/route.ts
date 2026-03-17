@@ -13,8 +13,9 @@ export const GET = handleRoute(
       context.supabase
         .from("event_categories")
         .select("id,name,slug")
-        .order("order", { ascending: true }),
-      context.supabase.from("event_areas").select("id,name,slug").order("name", { ascending: true }),
+        .order("order", { ascending: true })
+        .limit(200),
+      context.supabase.from("event_areas").select("id,name,slug").order("name", { ascending: true }).limit(200),
     ]);
     return NextResponse.json({ categories: categories || [], areas: areas || [] });
   }

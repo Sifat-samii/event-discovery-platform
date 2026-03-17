@@ -31,6 +31,7 @@ export default function AdminPanel() {
       });
       if (organizerFilter !== "all") params.set("organizer", organizerFilter);
       if (dateFilter) params.set("date", dateFilter);
+      if (verifiedOnly) params.set("verified", "true");
       const response = await fetch(`/api/admin/events?${params.toString()}`);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Failed to load events");
@@ -40,7 +41,7 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  }, [dateFilter, limit, organizerFilter, page, pushToast, statusFilter]);
+  }, [dateFilter, limit, organizerFilter, page, pushToast, statusFilter, verifiedOnly]);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -264,9 +265,7 @@ export default function AdminPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {events
-                    .filter((event) => (verifiedOnly ? !!event.verified : true))
-                    .map((event) => (
+                  {events.map((event) => (
                     <tr key={event.id} className="border-t">
                       <td className="p-4">
                         <div className="font-medium">{event.title}</div>

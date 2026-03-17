@@ -1,26 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth/roles";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppRole } from "@/lib/auth/roles";
 import { sanitizeUuid } from "@/lib/security/sanitize";
 import { normalizeOrganizerEventPayload, validateOrganizerEventPayload } from "@/lib/organizer/validation";
 import { isValidStatus, validateStatusTransition } from "@/lib/admin/status";
-import { logApiError } from "@/lib/utils/logger";
 import { handleRoute } from "@/lib/api/handle-route";
 
-async function getOwnedEventContext(eventId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized", status: 401 as const };
-
-  const role = await getUserRole(supabase, user.id);
+async function getOwnedEventContext(
+  supabase: SupabaseClient,
+  userId: string,
+  role: AppRole | null,
+  eventId: string
+) {
   if (role !== "organizer" && role !== "admin") return { error: "Forbidden", status: 403 as const };
 
   const { data: organizer } = await supabase
     .from("organizers")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   if (!organizer?.id) return { error: "Organizer profile not found", status: 400 as const };
 
@@ -35,7 +32,7 @@ async function getOwnedEventContext(eventId: string) {
     return { error: "Forbidden", status: 403 as const };
   }
 
-  return { supabase, user, role, organizerId: organizer.id, event } as const;
+  return { organizerId: organizer.id, event } as const;
 }
 
 export const PATCH = handleRoute<{ id: string }>(
@@ -46,15 +43,15 @@ export const PATCH = handleRoute<{ id: string }>(
     rateLimitKey: "organizer-event-update",
     rateLimitLimit: 60,
   },
-  async (request: NextRequest, contextRoute) => {
-    const { id } = await (contextRoute.params as Promise<{ id: string }>);
+  async (request: NextRequest, ctx) => {
+    const { id } = await (ctx.params as Promise<{ id: string }>);
     const eventId = sanitizeUuid(id);
     if (!eventId) return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
 
-    const context = await getOwnedEventContext(eventId);
-    if ("error" in context) return NextResponse.json({ error: context.error }, { status: context.status });
+    const owned = await getOwnedEventContext(ctx.supabase, ctx.userId!, ctx.role, eventId);
+    if ("error" in owned) return NextResponse.json({ error: owned.error }, { status: owned.status });
 
-    if (!["draft", "pending"].includes(context.event.status)) {
+    if (!["draft", "pending"].includes(owned.event.status)) {
       return NextResponse.json({ error: "Only Draft/Pending events can be edited." }, { status: 400 });
     }
 
@@ -74,7 +71,7 @@ export const PATCH = handleRoute<{ id: string }>(
         return NextResponse.json({ error: "Invalid status value." }, { status: 400 });
       }
       const transition = validateStatusTransition(
-        context.event.status,
+        owned.event.status,
         requestedStatus,
         "organizer"
       );
@@ -83,7 +80,7 @@ export const PATCH = handleRoute<{ id: string }>(
       }
     }
 
-    const { error } = await context.supabase
+    const { error } = await ctx.supabase
       .from("events")
       .update({
         title: payload.title,
@@ -113,18 +110,18 @@ export const DELETE = handleRoute<{ id: string }>(
     rateLimitKey: "organizer-event-delete",
     rateLimitLimit: 60,
   },
-  async (_request: NextRequest, contextRoute) => {
-    const { id } = await (contextRoute.params as Promise<{ id: string }>);
+  async (_request: NextRequest, ctx) => {
+    const { id } = await (ctx.params as Promise<{ id: string }>);
     const eventId = sanitizeUuid(id);
     if (!eventId) return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
 
-    const context = await getOwnedEventContext(eventId);
-    if ("error" in context) return NextResponse.json({ error: context.error }, { status: context.status });
-    if (!["draft", "pending"].includes(context.event.status)) {
+    const owned = await getOwnedEventContext(ctx.supabase, ctx.userId!, ctx.role, eventId);
+    if ("error" in owned) return NextResponse.json({ error: owned.error }, { status: owned.status });
+    if (!["draft", "pending"].includes(owned.event.status)) {
       return NextResponse.json({ error: "Only Draft/Pending events can be deleted." }, { status: 400 });
     }
 
-    const { error } = await context.supabase
+    const { error } = await ctx.supabase
       .from("events")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", eventId)

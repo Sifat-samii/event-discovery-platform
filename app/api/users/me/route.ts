@@ -10,34 +10,42 @@ export const GET = handleRoute(
     rateLimitLimit: 120,
   },
   async (_request: NextRequest, context) => {
-    const { data: authData, error: authError } = await context.supabase.auth.getUser();
-    if (authError || !authData.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userId = context.userId!;
 
-    const authUser = authData.user;
     const { data: profile } = await context.supabase
       .from("users")
       .select("id,email,full_name,avatar_url,interests")
-      .eq("id", authUser.id)
+      .eq("id", userId)
       .maybeSingle();
 
     if (!profile) {
+      const { data: authData } = await context.supabase.auth.getUser();
+      const meta = authData?.user?.user_metadata;
       await context.supabase.from("users").insert({
-        id: authUser.id,
-        email: authUser.email || "",
-        full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || null,
-        avatar_url: authUser.user_metadata?.avatar_url || null,
+        id: userId,
+        email: authData?.user?.email || "",
+        full_name: meta?.full_name || meta?.name || null,
+        avatar_url: meta?.avatar_url || null,
+      });
+      return NextResponse.json({
+        user: {
+          id: userId,
+          email: authData?.user?.email || null,
+          fullName: meta?.full_name || meta?.name || null,
+          avatarUrl: meta?.avatar_url || null,
+          interests: [],
+          role: context.role,
+        },
       });
     }
 
     return NextResponse.json({
       user: {
-        id: authUser.id,
-        email: authUser.email || null,
-        fullName: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || null,
-        avatarUrl: profile?.avatar_url || authUser.user_metadata?.avatar_url || null,
-        interests: profile?.interests || [],
+        id: userId,
+        email: profile.email || null,
+        fullName: profile.full_name || null,
+        avatarUrl: profile.avatar_url || null,
+        interests: profile.interests || [],
         role: context.role,
       },
     });

@@ -14,9 +14,10 @@ import EventViewTracker from "@/components/events/event-view-tracker";
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const event = await getEventBySlug(params.slug);
+  const { slug } = await params;
+  const event = await getEventBySlug(slug);
   if (!event) {
     return {
       title: "Event not found | Events Dhaka",
@@ -41,9 +42,10 @@ export async function generateMetadata({
 export default async function EventDetailPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const event = await getEventBySlug(params.slug);
+  const { slug } = await params;
+  const event = await getEventBySlug(slug);
 
   if (!event) {
     notFound();

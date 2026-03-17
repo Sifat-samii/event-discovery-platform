@@ -1,32 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth/roles";
-import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 import {
   normalizeOrganizerEventPayload,
   validateOrganizerEventPayload,
 } from "@/lib/organizer/validation";
 import { ensureUniqueEventSlug } from "@/lib/db/slug";
-import { logApiError } from "@/lib/utils/logger";
 import { normalizePagination, paginatedResponse } from "@/lib/api/pagination";
 import { handleRoute } from "@/lib/api/handle-route";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppRole } from "@/lib/auth/roles";
 
-async function getOrganizerContext() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: "Unauthorized", status: 401 as const };
-  }
-  const role = await getUserRole(supabase, user.id);
+async function resolveOrganizerId(
+  supabase: SupabaseClient,
+  userId: string,
+  role: AppRole | null
+) {
   if (role !== "organizer" && role !== "admin") {
     return { error: "Forbidden", status: 403 as const };
   }
   const { data: organizer } = await supabase
     .from("organizers")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   if (!organizer?.id) {
     return {
@@ -34,7 +28,7 @@ async function getOrganizerContext() {
       status: 400 as const,
     };
   }
-  return { supabase, user, role, organizerId: organizer.id } as const;
+  return { organizerId: organizer.id } as const;
 }
 
 export const GET = handleRoute(
@@ -45,17 +39,17 @@ export const GET = handleRoute(
     rateLimitKey: "organizer-events-list",
     rateLimitLimit: 120,
   },
-  async (request: NextRequest) => {
-    const context = await getOrganizerContext();
-    if ("error" in context) {
-      return NextResponse.json({ error: context.error }, { status: context.status });
+  async (request: NextRequest, context) => {
+    const org = await resolveOrganizerId(context.supabase, context.userId!, context.role);
+    if ("error" in org) {
+      return NextResponse.json({ error: org.error }, { status: org.status });
     }
     const { page, limit, from, to } = normalizePagination(request.nextUrl.searchParams);
 
     const { data, error, count } = await context.supabase
       .from("events")
       .select("*", { count: "exact" })
-      .eq("organizer_id", context.organizerId)
+      .eq("organizer_id", org.organizerId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .range(from, to);
@@ -82,21 +76,11 @@ export const POST = handleRoute(
     rateLimitKey: "organizer-event",
     rateLimitLimit: 40,
   },
-  async (request: NextRequest) => {
-    const limiter = rateLimit({
-      key: `organizer-event:${getClientIp(request)}`,
-      limit: 40,
-      windowMs: 60_000,
-    });
-    if (!limiter.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  async (request: NextRequest, context) => {
+    const org = await resolveOrganizerId(context.supabase, context.userId!, context.role);
+    if ("error" in org) {
+      return NextResponse.json({ error: org.error }, { status: org.status });
     }
-
-    const context = await getOrganizerContext();
-    if ("error" in context) {
-      return NextResponse.json({ error: context.error }, { status: context.status });
-    }
-    const { supabase, user, organizerId } = context;
 
     const payload = normalizeOrganizerEventPayload(await request.json());
     const validation = validateOrganizerEventPayload(payload);
@@ -104,11 +88,11 @@ export const POST = handleRoute(
       return NextResponse.json({ error: validation.errors.join(" ") }, { status: 400 });
     }
 
-    const { data: categories } = await supabase
+    const { data: categories } = await context.supabase
       .from("event_categories")
       .select("id,name")
       .limit(50);
-    const { data: areas } = await supabase.from("event_areas").select("id,name").limit(50);
+    const { data: areas } = await context.supabase.from("event_areas").select("id,name").limit(50);
 
     const categoryId =
       categories?.find((item) => item.name.toLowerCase() === payload.category.toLowerCase())
@@ -127,14 +111,14 @@ export const POST = handleRoute(
     const endDate = payload.endDate || startDate;
     const slug = await ensureUniqueEventSlug(payload.title);
 
-    const { data, error } = await supabase
+    const { data, error } = await context.supabase
       .from("events")
       .insert({
         title: payload.title,
         slug,
         description: payload.description || "",
         category_id: categoryId,
-        organizer_id: organizerId,
+        organizer_id: org.organizerId,
         area_id: areaId,
         venue_name: payload.venueName,
         venue_address: payload.venueAddress || payload.venueName,
@@ -145,7 +129,7 @@ export const POST = handleRoute(
         price_type: payload.priceType === "paid" ? "paid" : "free",
         ticket_link: payload.ticketLink || null,
         status: "pending",
-        created_by: user.id,
+        created_by: context.userId,
       })
       .select("id,status")
       .single();

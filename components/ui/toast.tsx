@@ -34,13 +34,24 @@ const typeStyles: Record<ToastType, string> = {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
+  const timersRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  React.useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
 
   const pushToast = React.useCallback((toast: Omit<ToastItem, "id">) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, ...toast }]);
-    window.setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
+      timersRef.current.delete(id);
     }, 2500);
+    timersRef.current.set(id, timer);
   }, []);
 
   return (

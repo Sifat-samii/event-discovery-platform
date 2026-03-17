@@ -55,6 +55,7 @@ export default function OnboardingPage() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || "Failed to save onboarding preferences");
       }
+      router.push("/dashboard");
     } catch (error) {
       logClientError({
         scope: "onboarding",
@@ -64,7 +65,6 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false);
     }
-    router.push("/dashboard");
   };
 
   const handleSkip = () => {

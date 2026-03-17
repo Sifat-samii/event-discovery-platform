@@ -10,9 +10,11 @@ export const POST = handleRoute(
     rateLimitLimit: 120,
   },
   async (request: NextRequest, context) => {
-    const event = await request.json();
-    
-    // Validate event data
+    const event = await request.json().catch(() => null);
+    if (!event) {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const validation = validateEvent(event);
     
     // Check for duplicates in a bounded date window.

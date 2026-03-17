@@ -26,9 +26,13 @@ export const GET = handleRoute(
       )
       .order("created_at", { ascending: false })
       .range(from, to);
-    if (status && status !== "all") query = query.eq("status", status);
-    if (resolution === "resolved") query = query.eq("status", "resolved");
-    if (resolution === "unresolved") query = query.neq("status", "resolved");
+    if (resolution === "resolved") {
+      query = query.eq("status", "resolved");
+    } else if (resolution === "unresolved") {
+      query = query.neq("status", "resolved");
+    } else if (status && status !== "all") {
+      query = query.eq("status", status);
+    }
 
     const { data, error, count } = await query;
     if (error) {

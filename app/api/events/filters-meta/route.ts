@@ -48,9 +48,9 @@ export const GET = handleRoute(
           .is("deleted_at", null)
           .gte("end_date", nowIso)
           .limit(2000),
-        context.supabase.from("event_categories").select("id,name,slug").order("order", { ascending: true }),
-        context.supabase.from("event_subcategories").select("id,name,slug,category_id").order("name"),
-        context.supabase.from("event_areas").select("id,name,slug").order("name"),
+        context.supabase.from("event_categories").select("id,name,slug").order("order", { ascending: true }).limit(200),
+        context.supabase.from("event_subcategories").select("id,name,slug,category_id").order("name").limit(500),
+        context.supabase.from("event_areas").select("id,name,slug").order("name").limit(200),
       ]);
 
     const rows = eventRows || [];

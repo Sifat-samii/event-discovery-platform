@@ -8,13 +8,14 @@ import type { Metadata } from "next";
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: organizer } = await supabase
     .from("organizers")
     .select("id,name,description")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (!organizer) {
@@ -35,13 +36,14 @@ export async function generateMetadata({
 export default async function OrganizerProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: organizer, error } = await supabase
     .from("organizers")
     .select("id,name,description,verified,website,social_links,created_at")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (error || !organizer) {
