@@ -26,14 +26,14 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 export const metadata: Metadata = createMetadata({
-  title: "Discover Cultural Events in Dhaka | Events Dhaka",
+  title: "Kothay Jabo? — Discover Events in Dhaka",
   description:
-    "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+    "Find concerts, workshops, exhibitions, theatre and more happening across Dhaka, Bangladesh.",
   alternates: { canonical: "/home" },
   openGraph: {
-    title: "Discover Cultural Events in Dhaka | Events Dhaka",
+    title: "Kothay Jabo? — Discover Events in Dhaka",
     description:
-      "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
+      "Find concerts, workshops, exhibitions, theatre and more happening across Dhaka, Bangladesh.",
     url: "/home",
   },
 });
@@ -100,21 +100,20 @@ export default async function HomePage() {
           <div className="relative z-10 mx-auto max-w-2xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/22 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
               <Sparkles className="h-3.5 w-3.5" />
-              Dhaka&apos;s Cultural Events Platform
+              Dhaka&apos;s Premier Events Guide
             </div>
 
             <h1 className="mb-4 text-4xl font-bold leading-[1.12] tracking-tight md:text-6xl">
-              Discover
-              <br />
-              <span className="gradient-text">Cultural Events</span>
-              <br />
-              In Dhaka
+              <span className="gradient-text">Kothay Jabo?</span>
             </h1>
+            <p className="mb-2 text-xl font-semibold text-foreground md:text-2xl">
+              Where to go in Dhaka — we&apos;ll tell you.
+            </p>
 
             <p className="mx-auto mb-8 max-w-lg text-lg leading-relaxed text-muted-foreground md:text-xl">
               Concerts, workshops, exhibitions, theatre —{" "}
               <br className="hidden sm:block" />
-              all happening across the city.
+              all the best events in the city, in one place.
             </p>
 
             <div className="mb-8 flex flex-wrap justify-center gap-3">
@@ -236,9 +235,9 @@ export default async function HomePage() {
           />
           <div className="relative z-10">
             <p className="section-label mb-3">Are you an organizer?</p>
-            <h3 className="mb-2 text-2xl font-bold">List Your Event for Free</h3>
+            <h3 className="mb-2 text-2xl font-bold">List Your Event on Kothay Jabo?</h3>
             <p className="mx-auto mb-7 max-w-sm text-sm text-muted-foreground">
-              Reach thousands of culture lovers in Dhaka. Submit your event in minutes.
+              Reach thousands of event lovers in Dhaka. Submit your event in minutes — it&apos;s free.
             </p>
             <Link href="/organizer">
               <Button variant="glow" size="lg" className="gap-2">

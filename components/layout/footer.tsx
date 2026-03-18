@@ -29,12 +29,12 @@ export default function Footer() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/25 bg-primary/12">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
               </div>
-              <span className="text-[15px] font-bold tracking-tight">
-                Events <span className="gradient-text">Dhaka</span>
-              </span>
+          <span className="text-[15px] font-bold tracking-tight gradient-text">
+              Kothay Jabo?
+            </span>
             </Link>
             <p className="max-w-[200px] text-sm leading-relaxed text-muted-foreground">
-              Discover cultural events, concerts, and workshops across Dhaka.
+              Where to go in Dhaka — concerts, workshops, exhibitions and more.
             </p>
           </div>
 
@@ -60,10 +60,10 @@ export default function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border/50 pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Events Dhaka. All rights reserved.
+            © {new Date().getFullYear()} Kothay Jabo? All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground">
-            Made with ❤️ for Dhaka&apos;s cultural community
+            Made with ❤️ for Dhaka&apos;s event lovers
           </p>
         </div>
       </div>

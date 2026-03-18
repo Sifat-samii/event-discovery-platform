@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin", "/dashboard", "/organizer", "/api"],
     },
-    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || "https://eventsdhaka.com"}/sitemap.xml`,
+    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || "https://kothayjabo.com"}/sitemap.xml`,
   };
 }

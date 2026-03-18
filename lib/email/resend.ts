@@ -1,7 +1,7 @@
 type SendResult = { ok: boolean; status?: number; error?: string };
 
 function getSender() {
-  return process.env.RESEND_FROM_EMAIL || "Events Dhaka <noreply@eventsdhaka.com>";
+  return process.env.RESEND_FROM_EMAIL || "Kothay Jabo? <noreply@kothayjabo.com>";
 }
 
 async function sendEmail(payload: {
@@ -71,7 +71,7 @@ export async function sendWeeklyDigest(to: string, events: Array<{ title: string
       <h2>This Weekend in Dhaka</h2>
       <p>Curated events for your weekend plan:</p>
       <ul>${items || "<li>No events curated this week.</li>"}</ul>
-      <p style="color:#666;">See more on Events Dhaka.</p>
+      <p style="color:#666;">See more on Kothay Jabo?</p>
     </div>
   `;
   return sendEmail({

@@ -20,12 +20,12 @@ export async function generateMetadata({
   const event = await getEventBySlug(slug);
   if (!event) {
     return {
-      title: "Event not found | Events Dhaka",
+      title: "Event not found | Kothay Jabo?",
     };
   }
 
   return {
-    title: `${event.title} | Events Dhaka`,
+    title: `${event.title} | Kothay Jabo?`,
     description: event.description?.slice(0, 160) || "Discover cultural events in Dhaka.",
     alternates: {
       canonical: `/events/${event.slug}`,

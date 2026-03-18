@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://eventsdhaka.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kothayjabo.com";
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {
