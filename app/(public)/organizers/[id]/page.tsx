@@ -19,10 +19,10 @@ export async function generateMetadata({
     .maybeSingle();
 
   if (!organizer) {
-    return { title: "Organizer not found | Events Dhaka" };
+    return { title: "Organizer not found | Kothay Jabo?" };
   }
   return {
-    title: `${organizer.name} | Organizer | Events Dhaka`,
+    title: `${organizer.name} | Organizer | Kothay Jabo?`,
     description: organizer.description?.slice(0, 160) || `Explore events from ${organizer.name}.`,
     alternates: { canonical: `/organizers/${organizer.id}` },
     openGraph: {

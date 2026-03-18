@@ -40,9 +40,9 @@ export const GET = handleRoute<{ id: string }>(
     const ics = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Events Dhaka//EN",
+      "PRODID:-//Kothay Jabo//EN",
       "BEGIN:VEVENT",
-      `UID:${event.id}@eventsdhaka.com`,
+      `UID:${event.id}@kothayjabo.com`,
       `DTSTAMP:${buildIcsDate(new Date())}`,
       `DTSTART:${buildIcsDate(startDate)}`,
       `DTEND:${buildIcsDate(endDate)}`,

@@ -1,7 +1,7 @@
 {
   "name": "events-project",
   "version": "1.0.0",
-  "description": "Cultural Events Platform for Dhaka, Bangladesh",
+  "description": "Kothay Jabo? — Cultural Events Platform for Dhaka, Bangladesh",
   "private": true,
   "scripts": {
     "dev": "next dev",

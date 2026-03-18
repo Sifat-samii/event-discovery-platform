@@ -8,18 +8,18 @@ import { validateRuntimeEnv } from "@/lib/env/validate-env";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Cultural Events Platform - Dhaka",
-  description: "Discover and stay updated with cultural events, concerts, workshops, and exhibitions across Dhaka, Bangladesh",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://eventsdhaka.com"),
+  title: "Kothay Jabo? — Discover Events in Dhaka",
+  description: "Kothay Jabo? — Find concerts, workshops, exhibitions, theatre and more happening across Dhaka, Bangladesh.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://kothayjabo.com"),
   alternates: {
     canonical: "/home",
   },
   openGraph: {
-    title: "Events Dhaka",
+    title: "Kothay Jabo?",
     description:
-      "Discover and stay updated with cultural events, concerts, workshops, and exhibitions across Dhaka, Bangladesh",
+      "Find concerts, workshops, exhibitions, theatre and more happening across Dhaka, Bangladesh.",
     url: "/home",
-    siteName: "Events Dhaka",
+    siteName: "Kothay Jabo?",
     type: "website",
   },
 };

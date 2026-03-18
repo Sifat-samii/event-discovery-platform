@@ -69,8 +69,8 @@ export default function SignupPage() {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/25 bg-primary/12">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-[15px] font-bold tracking-tight">
-            Events <span className="gradient-text">Dhaka</span>
+          <span className="text-[15px] font-bold tracking-tight gradient-text">
+            Kothay Jabo?
           </span>
         </Link>
       </div>
@@ -83,7 +83,7 @@ export default function SignupPage() {
             <div className="mb-7">
               <h1 className="text-2xl font-bold">Create account</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Join Dhaka&apos;s cultural events community
+                Join Dhaka&apos;s favourite events community
               </p>
             </div>
 

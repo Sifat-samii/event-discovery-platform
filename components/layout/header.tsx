@@ -47,9 +47,8 @@ export default function Header() {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/25 bg-primary/12 transition-all group-hover:bg-primary/20">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-[15px] font-bold tracking-tight">
-            Events{" "}
-            <span className="gradient-text">Dhaka</span>
+          <span className="text-[15px] font-bold tracking-tight gradient-text">
+            Kothay Jabo?
           </span>
         </Link>
 

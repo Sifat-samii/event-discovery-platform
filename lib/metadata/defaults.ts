@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-const siteName = "Events Dhaka";
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://eventsdhaka.com";
+const siteName = "Kothay Jabo?";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kothayjabo.com";
 
 export function createMetadata(overrides: Metadata): Metadata {
   return {
