@@ -1,13 +1,17 @@
+import type { CSSProperties } from "react";
+
 interface DhakaSkylineProps {
   className?: string;
+  style?: CSSProperties;
 }
 
-export default function DhakaSkyline({ className }: DhakaSkylineProps) {
+export default function DhakaSkyline({ className, style }: DhakaSkylineProps) {
   return (
     <svg
       viewBox="0 0 1440 180"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={style}
       aria-hidden
       preserveAspectRatio="xMidYMax slice"
     >

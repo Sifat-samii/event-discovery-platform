@@ -38,7 +38,7 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-border/40">
       <div className="absolute inset-0 bg-background/85 backdrop-blur-xl" />
 
-      <div className="relative page-wrap flex h-14 items-center gap-3">
+        <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
         {/* ── Logo ── */}
         <Link href="/home" className="group flex shrink-0 items-center gap-2">
           {/* Phoenix icon — gradient ring */}

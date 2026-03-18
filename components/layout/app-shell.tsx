@@ -10,9 +10,10 @@ interface AppShellProps {
 
 export default function AppShell({ children, showFooter = true }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
       <Header />
-      <main className="page-wrap pb-28 md:pb-10">{children}</main>
+      {/* No page-wrap here — each section manages its own containment */}
+      <main className="flex-1 pb-28 md:pb-10">{children}</main>
       {showFooter ? <Footer /> : null}
       <MobileTabbar />
     </div>
