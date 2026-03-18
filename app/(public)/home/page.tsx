@@ -74,10 +74,10 @@ export default async function HomePage() {
       {/* ──────────────── HERO ──────────────── */}
       <HeroSection />
 
-      <div className="space-y-20 py-16">
+      <div className="mx-auto w-full max-w-7xl space-y-20 px-4 py-16 sm:px-6 lg:px-8">
 
         {/* ──────────────── TRENDING ──────────────── */}
-        <section className="page-wrap">
+        <section>
           <SectionHeader
             icon={<TrendingUp className="h-4 w-4" />}
             title="Trending This Week"
@@ -101,7 +101,7 @@ export default async function HomePage() {
 
         {/* ──────────────── CATEGORIES ──────────────── */}
         {categories.length > 0 && (
-          <section className="page-wrap">
+          <section>
             <SectionHeader
               title="Browse by Category"
               viewAllHref="/browse"
@@ -117,14 +117,14 @@ export default async function HomePage() {
         )}
 
         {/* ──────────────── THIS WEEKEND ──────────────── */}
-        <section className="relative overflow-hidden">
+        <section className="relative -mx-4 overflow-hidden px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
           {/* Decorative background */}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-teal/6 via-transparent to-brand-purple/6" />
           <div className="absolute inset-0 pattern-dots opacity-30" />
           {/* Skyline accent */}
           <DhakaSkyline className="pointer-events-none absolute bottom-0 left-0 right-0 text-brand-teal/12 dark:text-brand-teal/08" />
 
-          <div className="relative z-10 page-wrap py-12">
+          <div className="relative z-10 py-12">
             <SectionHeader
               icon={<Clock className="h-4 w-4" />}
               title="This Weekend"
@@ -143,7 +143,7 @@ export default async function HomePage() {
 
         {/* ──────────────── FREE EVENTS ──────────────── */}
         {freeEvents.length > 0 && (
-          <section className="page-wrap">
+          <section>
             <SectionHeader
               title="Free to Attend"
               viewAllHref="/browse?price_type=free"
@@ -162,7 +162,7 @@ export default async function HomePage() {
         )}
 
         {/* ──────────────── NEWLY ADDED ──────────────── */}
-        <section className="page-wrap">
+        <section>
           <SectionHeader
             title="Newly Added"
             viewAllHref="/browse?sort=recent"
@@ -179,7 +179,7 @@ export default async function HomePage() {
         </section>
 
         {/* ──────────────── CTA BANNER ──────────────── */}
-        <section className="page-wrap">
+        <section>
           <FadeUp>
             <div className="relative overflow-hidden rounded-3xl">
               {/* Multi-color gradient */}

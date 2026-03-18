@@ -33,7 +33,7 @@ export default function Footer() {
 
       {/* Main footer */}
       <div className="bg-surface-1/50 py-12">
-        <div className="page-wrap">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">
