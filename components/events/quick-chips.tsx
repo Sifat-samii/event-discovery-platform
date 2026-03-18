@@ -1,28 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const chips = [
-  { label: "🔥 Trending", href: "/browse?sort=trending" },
-  { label: "🌙 Tonight", href: "/browse?date_preset=today&time_slot=evening" },
-  { label: "🗓 This Weekend", href: "/browse?date_preset=weekend" },
-  { label: "🎫 Free", href: "/browse?price_type=free" },
-  { label: "🎵 Music", href: "/browse?category=music" },
-  { label: "🎭 Theatre", href: "/browse?category=theatre-performing-arts" },
-  { label: "🎨 Exhibition", href: "/browse?search=exhibition" },
-  { label: "📚 Workshop", href: "/browse?search=workshop" },
+  { label: "All Events",     icon: "✨", href: "/browse",                             active: false },
+  { label: "Weekend Plans",  icon: "🗓",  href: "/browse?date_preset=weekend",          active: false },
+  { label: "Tonight",        icon: "🌙", href: "/browse?date_preset=today&time_slot=evening", active: false },
+  { label: "Free Entry",     icon: "🎫", href: "/browse?price_type=free",              active: false },
+  { label: "Music",          icon: "🎵", href: "/browse?category=music",               active: false },
+  { label: "Theatre",        icon: "🎭", href: "/browse?category=theatre-performing-arts", active: false },
+  { label: "Art & Culture",  icon: "🎨", href: "/browse?search=exhibition",            active: false },
+  { label: "Workshops",      icon: "🧠", href: "/browse?search=workshop",              active: false },
+  { label: "Family Friendly",icon: "👨‍👩‍👧",href: "/browse?search=family",               active: false },
+  { label: "Near Me",        icon: "📍", href: "/browse",                              active: false },
 ];
 
-export default function QuickChips() {
+interface QuickChipsProps {
+  className?: string;
+}
+
+export default function QuickChips({ className }: QuickChipsProps) {
   return (
-    <div className="scroll-x mx-auto mt-6 max-w-xl justify-center px-2">
+    <div className={cn("scroll-x justify-center", className)}>
       {chips.map((chip) => (
-        <Link
-          key={chip.label}
-          href={chip.href}
-          className="inline-flex shrink-0 items-center rounded-full border border-border/50 bg-surface-2/60 px-3.5 py-1.5 text-sm text-muted-foreground backdrop-blur-sm transition-all hover:border-primary/35 hover:bg-surface-3 hover:text-foreground whitespace-nowrap"
-        >
-          {chip.label}
+        <Link key={chip.label} href={chip.href}>
+          <span
+            className={cn(
+              "pill-chip",
+              chip.active && "pill-chip-active"
+            )}
+          >
+            <span className="text-base leading-none">{chip.icon}</span>
+            {chip.label}
+          </span>
         </Link>
       ))}
     </div>

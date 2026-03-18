@@ -11,6 +11,15 @@ const config: Config = {
     extend: {
       colors: {
         bg: "hsl(var(--bg))",
+        brand: {
+          gold:    "hsl(var(--brand-gold))",
+          teal:    "hsl(var(--brand-teal))",
+          purple:  "hsl(var(--brand-purple))",
+          coral:   "hsl(var(--brand-coral))",
+          emerald: "hsl(var(--brand-emerald))",
+          pink:    "hsl(var(--brand-pink))",
+          blue:    "hsl(var(--brand-blue))",
+        },
         surface: {
           1: "hsl(var(--surface-1))",
           2: "hsl(var(--surface-2))",
