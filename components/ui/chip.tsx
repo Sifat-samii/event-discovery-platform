@@ -4,18 +4,20 @@ interface ChipProps {
   label: string;
   active?: boolean;
   onClick?: () => void;
+  className?: string;
 }
 
-export default function Chip({ label, active = false, onClick }: ChipProps) {
+export default function Chip({ label, active = false, onClick, className }: ChipProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-[36px] items-center rounded-full border px-3 py-1 text-sm transition-all duration-fast",
+        "inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150 select-none whitespace-nowrap",
         active
-          ? "border-primary bg-primary/15 text-primary"
-          : "border-border bg-surface-2 text-muted-foreground hover:text-foreground"
+          ? "bg-primary text-primary-foreground shadow-[0_0_16px_rgba(255,138,0,0.3)]"
+          : "border border-border/60 bg-surface-2/70 text-muted-foreground hover:border-primary/30 hover:bg-surface-3 hover:text-foreground",
+        className
       )}
     >
       {label}

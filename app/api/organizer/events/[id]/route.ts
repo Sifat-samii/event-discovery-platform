@@ -80,20 +80,25 @@ export const PATCH = handleRoute<{ id: string }>(
       }
     }
 
+    const updatePayload: Record<string, unknown> = {
+      title: payload.title,
+      description: payload.description || "",
+      venue_name: payload.venueName,
+      venue_address: payload.venueAddress || payload.venueName,
+      start_date: `${payload.startDate}T00:00:00.000Z`,
+      end_date: `${(payload.endDate || payload.startDate)}T23:59:59.000Z`,
+      start_time: payload.startTime || "18:00:00",
+      end_time: payload.endTime || null,
+      price_type: payload.priceType,
+      ticket_link: payload.ticketLink || null,
+    };
+    if (requestedStatus) {
+      updatePayload.status = requestedStatus;
+    }
+
     const { error } = await ctx.supabase
       .from("events")
-      .update({
-        title: payload.title,
-        description: payload.description || "",
-        venue_name: payload.venueName,
-        venue_address: payload.venueAddress || payload.venueName,
-        start_date: `${payload.startDate}T00:00:00.000Z`,
-        end_date: `${(payload.endDate || payload.startDate)}T23:59:59.000Z`,
-        start_time: payload.startTime || "18:00:00",
-        end_time: payload.endTime || null,
-        price_type: payload.priceType,
-        ticket_link: payload.ticketLink || null,
-      })
+      .update(updatePayload)
       .eq("id", eventId)
       .is("deleted_at", null);
 

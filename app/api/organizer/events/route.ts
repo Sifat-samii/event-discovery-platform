@@ -95,14 +95,20 @@ export const POST = handleRoute(
     const { data: areas } = await context.supabase.from("event_areas").select("id,name").limit(50);
 
     const categoryId =
-      categories?.find((item) => item.name.toLowerCase() === payload.category.toLowerCase())
-        ?.id || categories?.[0]?.id;
-    const areaId =
-      areas?.find((item) => item.name.toLowerCase() === payload.area.toLowerCase())?.id ||
-      areas?.[0]?.id;
-    if (!categoryId || !areaId) {
+      categories?.find((item) => item.name.toLowerCase() === payload.category.toLowerCase())?.id;
+    if (!categoryId) {
+      const available = (categories || []).map((c) => c.name).join(", ");
       return NextResponse.json(
-        { error: "Missing category/area seed data in database." },
+        { error: `Category "${payload.category}" not found. Available: ${available || "none"}` },
+        { status: 400 }
+      );
+    }
+    const areaId =
+      areas?.find((item) => item.name.toLowerCase() === payload.area.toLowerCase())?.id;
+    if (!areaId) {
+      const available = (areas || []).map((a) => a.name).join(", ");
+      return NextResponse.json(
+        { error: `Area "${payload.area}" not found. Available: ${available || "none"}` },
         { status: 400 }
       );
     }
