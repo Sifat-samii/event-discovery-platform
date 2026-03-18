@@ -7,6 +7,7 @@ import SearchInput from "@/components/ui/search-input";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import ThemeToggle from "@/components/ui/theme-toggle";
 
 const NAV_LINKS = [
   { href: "/browse", label: "Browse" },
@@ -81,6 +82,10 @@ export default function Header() {
 
           <div className="mx-2 h-4 w-px bg-border/60" />
 
+          <ThemeToggle />
+
+          <div className="mx-1 h-4 w-px bg-border/60" />
+
           {user ? (
             <>
               <Link
@@ -125,6 +130,7 @@ export default function Header() {
               <path d="m21 21-4.35-4.35" />
             </svg>
           </button>
+          <ThemeToggle />
           {user && (
             <Link href="/dashboard">
               <div className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-xs font-semibold text-primary">

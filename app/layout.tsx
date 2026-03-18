@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientErrorListener from "@/components/layout/client-error-listener";
 import { ToastProvider } from "@/components/ui/toast";
 import { validateRuntimeEnv } from "@/lib/env/validate-env";
+import ThemeProvider from "@/components/layout/theme-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,12 +34,14 @@ export default function RootLayout({
   void envCheck;
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ToastProvider>
-          <ClientErrorListener />
-          {children}
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <ClientErrorListener />
+            {children}
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
