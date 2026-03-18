@@ -39,13 +39,24 @@ export const GET = handleRoute(
       });
     }
 
+    const metadata = authUser.user_metadata || {};
     return NextResponse.json({
       user: {
+<<<<<<< Current (Your changes)
         id: userId,
         email: profile.email || null,
         fullName: profile.full_name || null,
         avatarUrl: profile.avatar_url || null,
         interests: profile.interests || [],
+=======
+        id: authUser.id,
+        email: authUser.email || null,
+        fullName: profile?.full_name || metadata.full_name || metadata.name || null,
+        avatarUrl: profile?.avatar_url || metadata.avatar_url || null,
+        interests: profile?.interests || [],
+        preferredAreas: Array.isArray(metadata.preferred_areas) ? metadata.preferred_areas : [],
+        emailReminders: metadata.email_reminders ?? true,
+>>>>>>> Incoming (Background Agent changes)
         role: context.role,
       },
     });

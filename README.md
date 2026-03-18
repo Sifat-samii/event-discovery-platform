@@ -1,6 +1,6 @@
-# Cultural Events Platform - Dhaka
+# Kothay Jabo?
 
-A comprehensive platform for discovering cultural events in Dhaka, Bangladesh.
+A comprehensive platform for discovering events, workshops, and cultural experiences across Dhaka, Bangladesh.
 
 ## Features
 

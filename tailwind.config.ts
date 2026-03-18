@@ -3,30 +3,34 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   darkMode: "class",
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          '"SF Pro Display"',
+          '"SF Pro Text"',
+          '"Helvetica Neue"',
+          '"Segoe UI"',
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       colors: {
         bg: "hsl(var(--bg))",
-        brand: {
-          gold:    "hsl(var(--brand-gold))",
-          teal:    "hsl(var(--brand-teal))",
-          purple:  "hsl(var(--brand-purple))",
-          coral:   "hsl(var(--brand-coral))",
-          emerald: "hsl(var(--brand-emerald))",
-          pink:    "hsl(var(--brand-pink))",
-          blue:    "hsl(var(--brand-blue))",
-        },
         surface: {
           1: "hsl(var(--surface-1))",
           2: "hsl(var(--surface-2))",
           3: "hsl(var(--surface-3))",
+          4: "hsl(var(--surface-4))",
         },
         text: "hsl(var(--text))",
         "text-muted": "hsl(var(--text-muted))",
+        "text-secondary": "hsl(var(--text-secondary))",
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
         danger: "hsl(var(--danger))",
@@ -61,6 +65,7 @@ const config: Config = {
           foreground: "hsl(var(--destructive-foreground))",
         },
         border: "hsl(var(--border))",
+        "border-subtle": "hsl(var(--border-subtle))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         chart: {
@@ -72,19 +77,30 @@ const config: Config = {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "var(--radius-md)",
-        sm: "calc(var(--radius-md) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        md: "var(--radius)",
+        lg: "var(--radius-md)",
         xl: "var(--radius-lg)",
+        "2xl": "var(--radius-xl)",
+        "3xl": "var(--radius-2xl)",
       },
       boxShadow: {
-        "surface-1": "var(--shadow-1)",
-        "surface-2": "var(--shadow-2)",
+        xs: "var(--shadow-xs)",
+        "surface-1": "var(--shadow-sm)",
+        "surface-2": "var(--shadow-md)",
+        "surface-3": "var(--shadow-lg)",
+        glow: "var(--shadow-glow)",
       },
       transitionDuration: {
         fast: "var(--motion-fast)",
         base: "var(--motion-base)",
         slow: "var(--motion-slow)",
+      },
+      transitionTimingFunction: {
+        spring: "var(--motion-spring)",
+      },
+      backdropBlur: {
+        xs: "4px",
       },
     },
   },

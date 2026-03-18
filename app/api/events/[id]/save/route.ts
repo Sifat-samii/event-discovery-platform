@@ -158,23 +158,12 @@ export const DELETE = handleRoute<{ id: string }>(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const { error: reminderError } = await supabase
+    await supabase
       .from("reminders")
       .update({ deleted_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("event_id", eventId)
       .is("deleted_at", null);
-
-    if (reminderError) {
-      logApiWarn(
-        {
-          route: "/api/events/[id]/save DELETE",
-          userId,
-          action: "unsave-event-cleanup-reminder",
-        },
-        reminderError.message
-      );
-    }
 
     return NextResponse.json({ success: true, saved: false });
   }

@@ -13,10 +13,14 @@ export const POST = handleRoute(
     rateLimitLimit: 10,
   },
   async (request: NextRequest, context) => {
+<<<<<<< Current (Your changes)
     const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+=======
+    const body = await request.json();
+>>>>>>> Incoming (Background Agent changes)
     const url = sanitizeText(body.url, 400);
     const text = sanitizeText(body.text, 4000);
 

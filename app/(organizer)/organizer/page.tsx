@@ -8,6 +8,87 @@ import EventStepperForm from "@/components/organizer/event-stepper-form";
 import { useToast } from "@/components/ui/toast";
 import { logClientError } from "@/lib/utils/client-logger";
 
+function CreateOrganizerProfileForm({ onCreated }: { onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [website, setWebsite] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const { pushToast } = useToast();
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("Organizer name is required");
+      return;
+    }
+    setCreating(true);
+    setError("");
+    try {
+      const response = await fetch("/api/organizer/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), description: description.trim(), website: website.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to create profile");
+      onCreated();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      setError(msg);
+      pushToast({ title: "Creation failed", description: msg, type: "danger" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <div className="rounded-xl border border-border bg-surface-1 p-6 space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold">Create Organizer Profile</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Set up your organizer profile to start submitting events.
+          </p>
+        </div>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Organizer Name *</label>
+            <Input
+              placeholder="Enter organizer or organization name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Description</label>
+            <textarea
+              className="w-full rounded-md border border-input bg-background p-3 text-sm"
+              rows={4}
+              placeholder="Describe your organization, mission, or the types of events you host..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Website</label>
+            <Input
+              placeholder="https://yourorganization.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button type="submit" disabled={creating}>
+            {creating ? "Creating..." : "Create Profile"}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function OrganizerPortal() {
   const [user, setUser] = useState<any>(null);
   const [organizer, setOrganizer] = useState<any>(null);
@@ -156,43 +237,36 @@ export default function OrganizerPortal() {
   return (
     <AppShell>
       <main className="min-h-screen py-8">
-        <h1 className="text-3xl font-bold mb-8">Organizer Portal</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-6">Organizer Portal</h1>
 
         {!organizer ? (
-          <div className="max-w-2xl space-y-4">
-            <h2 className="text-xl font-semibold">Create Organizer Profile</h2>
-            <form className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Organizer Name</label>
-                <Input placeholder="Enter organizer name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
-                <textarea
-                  className="w-full p-3 border rounded-md"
-                  rows={4}
-                  placeholder="Describe your organization..."
-                />
-              </div>
-              <Button>Create Profile</Button>
-            </form>
-          </div>
+          <CreateOrganizerProfileForm
+            onCreated={async () => {
+              await fetchOrganizer();
+              if (user?.id) await fetchEvents(user.id);
+              pushToast({
+                title: "Profile created",
+                description: "You can now submit events.",
+                type: "success",
+              });
+            }}
+          />
         ) : (
           <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-border bg-surface-1 p-4">
-                <p className="text-sm text-muted-foreground">Submitted</p>
-                <p className="mt-1 text-2xl font-semibold">{events.length}</p>
+              <div className="glass-card !rounded-2xl p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Submitted</p>
+                <p className="mt-2 text-3xl font-bold tracking-tight">{events.length}</p>
               </div>
-              <div className="rounded-xl border border-border bg-surface-1 p-4">
-                <p className="text-sm text-muted-foreground">Published</p>
-                <p className="mt-1 text-2xl font-semibold">
+              <div className="glass-card !rounded-2xl p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Published</p>
+                <p className="mt-2 text-3xl font-bold tracking-tight text-success">
                   {events.filter((e) => e.status === "published").length}
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-surface-1 p-4">
-                <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="mt-1 text-2xl font-semibold">
+              <div className="glass-card !rounded-2xl p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</p>
+                <p className="mt-2 text-3xl font-bold tracking-tight text-warning">
                   {events.filter((e) => e.status === "pending").length}
                 </p>
               </div>
@@ -211,24 +285,18 @@ export default function OrganizerPortal() {
                 </div>
               ) : null}
               {events.length > 0 ? (
-                <div className="space-y-4">
-                  {events.map((event) => (
-                    <div key={event.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{event.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Status: {event.status}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteEvent(event.id)}
-                        >
-                          Delete
-                        </Button>
+                <div className="sf-section">
+                  {events.map((event, i) => (
+                    <div key={event.id} className={`sf-row gap-4 ${i > 0 ? "border-t border-border/30" : ""}`}>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-[14px] font-semibold tracking-tight truncate">{event.title}</h3>
+                        <span className={`text-[11px] font-medium ${event.status === "published" ? "text-success" : event.status === "pending" ? "text-warning" : "text-muted-foreground"}`}>
+                          {event.status}
+                        </span>
                       </div>
+                      <Button variant="outline" size="sm" onClick={() => handleDeleteEvent(event.id)}>
+                        Delete
+                      </Button>
                     </div>
                   ))}
                 </div>

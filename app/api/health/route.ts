@@ -34,7 +34,7 @@ export const GET = handleRoute(
     {
       status: ok ? "ok" : "degraded",
       timestamp,
-      service: "events-project",
+      service: "kothay-jabo",
       checks: {
         env: { ok: env.ok, missing: env.missing },
         db: { ok: dbConnected, error: dbError },

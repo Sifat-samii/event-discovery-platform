@@ -13,6 +13,21 @@ export const GET = handleRoute(
     rateLimitLimit: 120,
   },
   async (request: NextRequest, context) => {
+<<<<<<< Current (Your changes)
+=======
+    if (!context.userId) {
+      return NextResponse.json(
+        paginatedResponse({
+          data: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+          extra: { reminders: [] },
+        })
+      );
+    }
+
+>>>>>>> Incoming (Background Agent changes)
     const { page, limit, from, to } = normalizePagination(request.nextUrl.searchParams);
     const eventIds = sanitizeUuidList(request.nextUrl.searchParams.get("event_ids") || "");
 

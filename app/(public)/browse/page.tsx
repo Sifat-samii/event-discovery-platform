@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import EventCard from "@/components/events/event-card";
 import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import Skeleton from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -12,59 +13,11 @@ import { useToast } from "@/components/ui/toast";
 import SearchInput from "@/components/ui/search-input";
 import Chip from "@/components/ui/chip";
 import { logClientError } from "@/lib/utils/client-logger";
-import { SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 
 type SelectOption = { id: string; name: string; slug: string };
 type TimeSlotOption = { id: string; label: string };
 type DatePreset = "today" | "weekend" | "custom" | "";
 const PAGE_LIMIT = 12;
-
-/* ── Styled Select ── */
-function StyledSelect({
-  value,
-  onChange,
-  disabled,
-  children,
-  label,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-  label?: string;
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className={cn(
-          "w-full appearance-none rounded-xl border border-border/60 bg-surface-2/60 px-3.5 py-2.5 pr-9 text-sm font-medium text-foreground transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/12",
-          disabled && "cursor-not-allowed opacity-50"
-        )}
-        aria-label={label}
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  );
-}
-
-/* ── Filter Section ── */
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-        {title}
-      </p>
-      {children}
-    </div>
-  );
-}
 
 function BrowsePageContent() {
   const { pushToast } = useToast();
@@ -72,7 +25,6 @@ function BrowsePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const [searchLocal, setSearchLocal] = useState(searchParams.get("search") || "");
 
   const parseList = (value: string | null) =>
     value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
@@ -108,15 +60,15 @@ function BrowsePageContent() {
     verifiedOnly: searchParams.get("verified_only") === "true",
   }));
   const [draftFilters, setDraftFilters] = useState(filters);
-
   const stateKey = useMemo(
     () => `browse_state_${JSON.stringify({ filters, page: pagination.page })}`,
     [filters, pagination.page]
   );
-
   const activeFilterCount = useMemo(
     () =>
+      Number(Boolean(filters.search)) +
       filters.categories.length +
+      Number(Boolean(filters.subcategory)) +
       filters.areas.length +
       Number(Boolean(filters.datePreset || filters.dateFrom || filters.dateTo)) +
       Number(Boolean(filters.timeSlot)) +
@@ -156,9 +108,12 @@ function BrowsePageContent() {
       setAreas((data.areas || []) as SelectOption[]);
       setSubcategoriesByCategory((data.subcategoriesByCategory || {}) as Record<string, SelectOption[]>);
       setTimeSlots((data.timeSlots || []) as TimeSlotOption[]);
+
       if (filters.categories.length === 1) {
         const selected = categoryList.find((c) => c.slug === filters.categories[0]);
         setSubcategories(selected ? data.subcategoriesByCategory?.[selected.id] || [] : []);
+      } else {
+        setSubcategories([]);
       }
     } catch (error) {
       logClientError({
@@ -193,18 +148,27 @@ function BrowsePageContent() {
         const response = await fetch(`/api/events?${params}`);
         const data = await response.json().catch(() => null);
         if (!response.ok) {
+          // Treat API non-2xx as handled UI state, not client exception telemetry.
           setError(data?.error || "Failed to load events");
           return;
         }
         const incoming = data.events || [];
         let mergedEvents: any[] = incoming;
         setEvents((prev) => {
-          if (!append) { mergedEvents = incoming; return incoming; }
+          if (!append) {
+            mergedEvents = incoming;
+            return incoming;
+          }
           const seen = new Set(prev.map((item: any) => item.id));
           mergedEvents = [...prev, ...incoming.filter((item: any) => !seen.has(item.id))];
           return mergedEvents;
         });
-        const nextPagination = data.pagination || { page, limit: PAGE_LIMIT, total: 0, totalPages: 1 };
+        const nextPagination = data.pagination || {
+          page,
+          limit: PAGE_LIMIT,
+          total: 0,
+          totalPages: 1,
+        };
         setPagination((prev) =>
           prev.page === nextPagination.page &&
           prev.limit === nextPagination.limit &&
@@ -215,11 +179,18 @@ function BrowsePageContent() {
         );
         window.sessionStorage.setItem(
           stateKey,
-          JSON.stringify({ events: mergedEvents, pagination: data.pagination || { page, limit: PAGE_LIMIT, total: 0, totalPages: 1 } })
+          JSON.stringify({
+            events: mergedEvents,
+            pagination: data.pagination || { page, limit: PAGE_LIMIT, total: 0, totalPages: 1 },
+          })
         );
-      } catch (error: any) {
-        logClientError({ scope: "browse", message: "Network failure while fetching events", error: error instanceof Error ? error.message : String(error) });
-        setError(error?.message || "Failed to load events");
+      } catch (error: unknown) {
+        logClientError({
+          scope: "browse",
+          message: "Network failure while fetching events",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setError(error instanceof Error ? error.message : "Failed to load events");
       } finally {
         if (!append) setLoading(false);
         setLoadingMore(false);
@@ -228,12 +199,16 @@ function BrowsePageContent() {
     [filters, stateKey]
   );
 
-  useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   useEffect(() => {
     const savedScroll = window.sessionStorage.getItem("browse_scroll");
     if (savedScroll) window.scrollTo({ top: Number(savedScroll), behavior: "auto" });
-    const onScroll = () => { window.sessionStorage.setItem("browse_scroll", String(window.scrollY)); };
+    const onScroll = () => {
+      window.sessionStorage.setItem("browse_scroll", String(window.scrollY));
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -246,7 +221,9 @@ function BrowsePageContent() {
         if (parsed?.events?.length) setEvents(parsed.events);
         if (parsed?.pagination) setPagination(parsed.pagination);
         setLoading(false);
-      } catch { /* ignore */ }
+      } catch {
+        // ignore cache parse failure
+      }
     }
     fetchEvents(pagination.page);
     syncUrl(filters, pagination.page);
@@ -257,7 +234,9 @@ function BrowsePageContent() {
     const observer = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
-        if (!first?.isIntersecting || loading || loadingMore || pagination.page >= pagination.totalPages) return;
+        if (!first?.isIntersecting) return;
+        if (loading || loadingMore) return;
+        if (pagination.page >= pagination.totalPages) return;
         setLoadingMore(true);
         const nextPage = pagination.page + 1;
         setPagination((prev) => ({ ...prev, page: nextPage }));
@@ -269,23 +248,35 @@ function BrowsePageContent() {
     return () => observer.disconnect();
   }, [fetchEvents, loading, loadingMore, pagination.page, pagination.totalPages]);
 
-  useEffect(() => {
-    if (filters.categories.length !== 1) { setSubcategories([]); return; }
-    const selected = categories.find((c) => c.slug === filters.categories[0]);
-    setSubcategories(selected ? subcategoriesByCategory[selected.id] || [] : []);
-  }, [categories, filters.categories, subcategoriesByCategory]);
-
   const toggleMultiValue = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
   const applyDatePreset = (preset: DatePreset) => {
-    if (!preset) { setFilters((prev) => ({ ...prev, datePreset: "", dateFrom: "", dateTo: "", thisWeekend: false })); return; }
-    if (preset === "today") {
-      const today = new Date().toISOString().slice(0, 10);
-      setFilters((prev) => ({ ...prev, datePreset: "today", dateFrom: today, dateTo: today, thisWeekend: false }));
+    if (!preset) {
+      setFilters((prev) => ({ ...prev, datePreset: "", dateFrom: "", dateTo: "", thisWeekend: false }));
       return;
     }
-    if (preset === "weekend") { setFilters((prev) => ({ ...prev, datePreset: "weekend", dateFrom: "", dateTo: "", thisWeekend: true })); return; }
+    if (preset === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: "today",
+        dateFrom: today,
+        dateTo: today,
+        thisWeekend: false,
+      }));
+      return;
+    }
+    if (preset === "weekend") {
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: "weekend",
+        dateFrom: "",
+        dateTo: "",
+        thisWeekend: true,
+      }));
+      return;
+    }
     setFilters((prev) => ({ ...prev, datePreset: "custom", thisWeekend: false }));
   };
 
@@ -297,347 +288,424 @@ function BrowsePageContent() {
       nextSubcategories = selected ? subcategoriesByCategory[selected.id] || [] : [];
     }
     setSubcategories(nextSubcategories);
-    setFilters((prev) => ({ ...prev, categories: categoriesNext, subcategory: categoriesNext.length === 1 ? prev.subcategory : "" }));
+    const next = {
+      ...filters,
+      categories: categoriesNext,
+      subcategory: categoriesNext.length === 1 ? filters.subcategory : "",
+    };
+    setFilters(next);
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const clearFilters = useMemo(() => () => {
-    const reset = { search: "", categories: [] as string[], subcategory: "", areas: [] as string[], dateFrom: "", dateTo: "", datePreset: "" as DatePreset, timeSlot: "", priceType: "", sort: "soonest", thisWeekend: false, verifiedOnly: false };
-    setFilters(reset);
-    setSearchLocal("");
-    setSubcategories([]);
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    syncUrl(reset, 1);
-  }, [syncUrl]);
+  const clearFilters = useMemo(
+    () => () => {
+      const reset = {
+        search: "",
+        categories: [] as string[],
+        subcategory: "",
+        areas: [] as string[],
+        dateFrom: "",
+        dateTo: "",
+        datePreset: "" as DatePreset,
+        timeSlot: "",
+        priceType: "",
+        sort: "soonest",
+        thisWeekend: false,
+        verifiedOnly: false,
+      };
+      setFilters(reset);
+      setSubcategories([]);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+      syncUrl(reset, 1);
+    },
+    [syncUrl]
+  );
 
-  const applyMobileFilters = () => { setFilters(draftFilters); setPagination((prev) => ({ ...prev, page: 1 })); setMobileFilterOpen(false); };
+  const applyMobileFilters = () => {
+    setFilters(draftFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setMobileFilterOpen(false);
+  };
+
   const resetMobileFilters = () => {
     clearFilters();
-    setDraftFilters({ search: "", categories: [], subcategory: "", areas: [], dateFrom: "", dateTo: "", datePreset: "", timeSlot: "", priceType: "", sort: "soonest", thisWeekend: false, verifiedOnly: false });
+    setDraftFilters({
+      ...filters,
+      search: "",
+      categories: [],
+      subcategory: "",
+      areas: [],
+      dateFrom: "",
+      dateTo: "",
+      datePreset: "",
+      timeSlot: "",
+      priceType: "",
+      sort: "soonest",
+      thisWeekend: false,
+      verifiedOnly: false,
+    });
   };
 
-  /* ── Filter Sidebar (shared between desktop and mobile) ── */
-  const FiltersPanel = ({ draft = false }: { draft?: boolean }) => {
-    const f = draft ? draftFilters : filters;
-    const setF = draft
-      ? (updater: (prev: typeof draftFilters) => typeof draftFilters) => setDraftFilters(updater)
-      : (updater: (prev: typeof filters) => typeof filters) => { setFilters(updater); setPagination((prev) => ({ ...prev, page: 1 })); };
-
-    return (
-      <div className="space-y-5">
-        {/* Search */}
-        <FilterSection title="Search">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              value={draft ? f.search : searchLocal}
-              onChange={(e) => {
-                if (draft) {
-                  setF((prev) => ({ ...prev, search: e.target.value }));
-                } else {
-                  setSearchLocal(e.target.value);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  if (!draft) setFilters((prev) => ({ ...prev, search: searchLocal }));
-                }
-              }}
-              onBlur={() => {
-                if (!draft) setFilters((prev) => ({ ...prev, search: searchLocal }));
-              }}
-              placeholder="Search events…"
-              className="w-full rounded-xl border border-border/60 bg-surface-2/60 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/12 transition-all"
-            />
-          </div>
-        </FilterSection>
-
-        {/* Category */}
-        <FilterSection title="Category">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <Chip
-                key={cat.id}
-                label={cat.name}
-                active={f.categories.includes(cat.slug)}
-                onClick={() => {
-                  const next = toggleMultiValue(f.categories, cat.slug);
-                  setF((prev) => ({ ...prev, categories: next, subcategory: "" }));
-                  if (!draft) setPagination((prev) => ({ ...prev, page: 1 }));
-                }}
-              />
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Subcategory */}
-        {subcategories.length > 0 && (
-          <FilterSection title="Subcategory">
-            <StyledSelect label="Subcategory" value={f.subcategory} onChange={(v) => setF((prev) => ({ ...prev, subcategory: v }))} disabled={f.categories.length !== 1}>
-              <option value="">All subcategories</option>
-              {subcategories.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
-            </StyledSelect>
-          </FilterSection>
-        )}
-
-        {/* Area */}
-        <FilterSection title="Area">
-          <div className="flex flex-wrap gap-2">
-            {areas.map((area) => (
-              <Chip
-                key={area.id}
-                label={area.name}
-                active={f.areas.includes(area.slug)}
-                onClick={() => {
-                  setF((prev) => ({ ...prev, areas: toggleMultiValue(prev.areas, area.slug) }));
-                  if (!draft) setPagination((prev) => ({ ...prev, page: 1 }));
-                }}
-              />
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Date */}
-        <FilterSection title="Date">
-          <div className="flex flex-wrap gap-2 mb-3">
-            {(["today", "weekend"] as DatePreset[]).map((preset) => (
-              <Chip
-                key={preset}
-                label={preset === "today" ? "Today" : "Weekend"}
-                active={f.datePreset === preset || (preset === "weekend" && f.thisWeekend)}
-                onClick={() => {
-                  if (!draft) applyDatePreset(f.datePreset === preset ? "" : preset);
-                  else setDraftFilters((prev) => ({ ...prev, datePreset: prev.datePreset === preset ? "" : preset, thisWeekend: preset === "weekend" && prev.datePreset !== preset }));
-                }}
-              />
-            ))}
-          </div>
-          {f.datePreset !== "today" && f.datePreset !== "weekend" && !f.thisWeekend && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-muted-foreground">From</label>
-                <input type="date" value={f.dateFrom}
-                  onChange={(e) => setF((prev) => ({ ...prev, dateFrom: e.target.value, datePreset: "custom" }))}
-                  className="w-full rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2 text-xs focus:border-primary/40 focus:outline-none" />
-              </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-muted-foreground">To</label>
-                <input type="date" value={f.dateTo}
-                  onChange={(e) => setF((prev) => ({ ...prev, dateTo: e.target.value, datePreset: "custom" }))}
-                  className="w-full rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2 text-xs focus:border-primary/40 focus:outline-none" />
-              </div>
-            </div>
-          )}
-        </FilterSection>
-
-        {/* Time slot */}
-        {timeSlots.length > 0 && (
-          <FilterSection title="Time">
-            <StyledSelect label="Time slot" value={f.timeSlot} onChange={(v) => setF((prev) => ({ ...prev, timeSlot: v }))}>
-              <option value="">Any time</option>
-              {timeSlots.map((slot) => <option key={slot.id} value={slot.id}>{slot.label}</option>)}
-            </StyledSelect>
-          </FilterSection>
-        )}
-
-        {/* Price */}
-        <FilterSection title="Price">
-          <div className="flex gap-2">
-            {["", "free", "paid"].map((p) => (
-              <Chip key={p} label={p === "" ? "All" : p === "free" ? "Free" : "Paid"} active={f.priceType === p} onClick={() => setF((prev) => ({ ...prev, priceType: p }))} />
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Sort */}
-        <FilterSection title="Sort By">
-          <StyledSelect label="Sort by" value={f.sort} onChange={(v) => setF((prev) => ({ ...prev, sort: v }))}>
-            <option value="soonest">Soonest</option>
-            <option value="trending">Trending</option>
-            <option value="recent">Recently Added</option>
-          </StyledSelect>
-        </FilterSection>
-
-        {/* Verified only */}
-        <label className="flex cursor-pointer items-center gap-2.5">
-          <div
-            onClick={() => setF((prev) => ({ ...prev, verifiedOnly: !prev.verifiedOnly }))}
-            className={cn(
-              "relative h-5 w-9 rounded-full transition-colors",
-              f.verifiedOnly ? "bg-primary" : "bg-border"
-            )}
-          >
-            <div className={cn(
-              "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
-              f.verifiedOnly ? "translate-x-4" : "translate-x-0.5"
-            )} />
-          </div>
-          <span className="text-sm font-medium">Verified only</span>
-        </label>
-
-        {!draft && activeFilterCount > 0 && (
-          <Button variant="outline" className="w-full rounded-xl" onClick={clearFilters}>
-            <X className="mr-2 h-3.5 w-3.5" /> Clear all filters
-          </Button>
-        )}
-      </div>
-    );
-  };
-
-  const EventsGrid = () => {
-    if (loading) return (
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-72 rounded-2xl" />
-        ))}
-      </div>
-    );
-    if (!loading && events.length === 0) return (
-      <EmptyState
-        title="No events found"
-        description="Try broadening your date range or removing a filter."
-        actionLabel="Reset filters"
-        onAction={clearFilters}
-      />
-    );
-    return (
-      <motion.div
-        className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
-        initial="hidden"
-        animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-      >
-        <AnimatePresence mode="popLayout">
-          {events.map((event) => (
-            <motion.div
-              key={event.id}
-              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { type: "tween", duration: 0.35 } } }}
-              layout
-            >
-              <EventCard event={event} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </motion.div>
-    );
-  };
+  useEffect(() => {
+    if (filters.categories.length !== 1) {
+      setSubcategories([]);
+      return;
+    }
+    const selected = categories.find((c) => c.slug === filters.categories[0]);
+    setSubcategories(selected ? subcategoriesByCategory[selected.id] || [] : []);
+  }, [categories, filters.categories, subcategoriesByCategory]);
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-
-        {/* ── Page header ── */}
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">Browse Events</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {loading ? "Loading…" : `${pagination.total} event${pagination.total !== 1 ? "s" : ""} found`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Active filter chips */}
-            {filters.search && (
-              <span className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-3 py-1.5 text-xs font-medium text-primary">
-                &ldquo;{filters.search}&rdquo;
-                <button onClick={() => { setFilters((p) => ({ ...p, search: "" })); setSearchLocal(""); }} className="hover:text-primary/70"><X className="h-3 w-3" /></button>
-              </span>
-            )}
-            {/* Mobile filter button */}
-            <Button
-              className="lg:hidden gap-2"
-              variant="outline"
-              onClick={() => { setDraftFilters(filters); setMobileFilterOpen(true); }}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* ── Main layout ── */}
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-
-          {/* ── Filters sidebar (desktop) ── */}
-          <aside className="hidden lg:sticky lg:top-20 lg:block lg:h-fit lg:w-64 xl:w-72">
-            <div className="rounded-2xl border border-border/50 bg-surface-1 p-5 shadow-[var(--shadow-1)]">
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-sm font-bold">Filters</h3>
-                {activeFilterCount > 0 && (
-                  <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-danger transition-colors">
-                    <X className="h-3 w-3" />
-                    Clear ({activeFilterCount})
-                  </button>
-                )}
+      <div className="min-h-screen py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Filters Sidebar */}
+          <aside className="hidden lg:sticky lg:top-24 lg:h-fit lg:w-72 lg:block space-y-4">
+            <div>
+              <h3 className="font-semibold mb-4">Filters</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Search</label>
+                  <SearchInput
+                    value={filters.search}
+                    onChange={(value) => {
+                      setFilters({ ...filters, search: value });
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Category</label>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => (
+                      <Chip
+                        key={category.id}
+                        label={category.name}
+                        active={filters.categories.includes(category.slug)}
+                        onClick={() => onCategoryToggle(category.slug)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Subcategory</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                    value={filters.subcategory}
+                    onChange={(e) => {
+                      setFilters({ ...filters, subcategory: e.target.value });
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                    disabled={filters.categories.length !== 1}
+                  >
+                    <option value="">All</option>
+                    {subcategories.map((subcategory) => (
+                      <option key={subcategory.id} value={subcategory.slug}>
+                        {subcategory.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Area</label>
+                  <div className="flex flex-wrap gap-2">
+                    {areas.map((area) => (
+                      <Chip
+                        key={area.id}
+                        label={area.name}
+                        active={filters.areas.includes(area.slug)}
+                        onClick={() => {
+                          setFilters((prev) => ({
+                            ...prev,
+                            areas: toggleMultiValue(prev.areas, area.slug),
+                          }));
+                          setPagination((prev) => ({ ...prev, page: 1 }));
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date preset</label>
+                  <div className="flex flex-wrap gap-2">
+                    <Chip
+                      label="Today"
+                      active={filters.datePreset === "today"}
+                      onClick={() => {
+                        applyDatePreset("today");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <Chip
+                      label="Weekend"
+                      active={filters.datePreset === "weekend" || filters.thisWeekend}
+                      onClick={() => {
+                        applyDatePreset("weekend");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <Chip
+                      label="Custom"
+                      active={filters.datePreset === "custom"}
+                      onClick={() => {
+                        applyDatePreset("custom");
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date From</label>
+                  <Input
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => {
+                      setFilters({ ...filters, dateFrom: e.target.value });
+                      if (e.target.value) setFilters((prev) => ({ ...prev, datePreset: "custom" }));
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                    disabled={filters.datePreset === "today" || filters.datePreset === "weekend"}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date To</label>
+                  <Input
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) => {
+                      setFilters({ ...filters, dateTo: e.target.value });
+                      if (e.target.value) setFilters((prev) => ({ ...prev, datePreset: "custom" }));
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                    disabled={filters.datePreset === "today" || filters.datePreset === "weekend"}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Time Slot</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                    value={filters.timeSlot}
+                    onChange={(e) => {
+                      setFilters({ ...filters, timeSlot: e.target.value });
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  >
+                    <option value="">All</option>
+                    {timeSlots.map((slot) => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Price</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                    value={filters.priceType}
+                    onChange={(e) => {
+                      setFilters({ ...filters, priceType: e.target.value });
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  >
+                    <option value="">All</option>
+                    <option value="free">Free</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Sort By</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                    value={filters.sort}
+                    onChange={(e) => {
+                      setFilters({ ...filters, sort: e.target.value });
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  >
+                    <option value="soonest">Soonest</option>
+                    <option value="trending">Trending</option>
+                    <option value="recent">Recently Added</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.thisWeekend}
+                      onChange={(e) => {
+                        setFilters({ ...filters, thisWeekend: e.target.checked });
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <span className="text-sm">This Weekend</span>
+                  </label>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.verifiedOnly}
+                      onChange={(e) => {
+                        setFilters({ ...filters, verifiedOnly: e.target.checked });
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                      }}
+                    />
+                    <span className="text-sm">Verified only</span>
+                  </label>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={clearFilters}
+                >
+                  Clear Filters
+                </Button>
               </div>
-              <FiltersPanel />
             </div>
           </aside>
 
-          {/* ── Events area ── */}
-          <div className="min-w-0 flex-1">
-            <EventsGrid />
-
-            {error && (
-              <div className="mt-6 rounded-2xl border border-danger/30 bg-danger/6 p-5">
-                <p className="text-sm font-medium text-danger">{error}</p>
-                <Button className="mt-3" variant="outline" size="sm"
-                  onClick={() => { fetchEvents(pagination.page); pushToast({ title: "Retrying…" }); }}>
+          {/* Events Grid */}
+          <div className="flex-1">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="text-3xl font-bold">Browse Events</h1>
+              <div className="flex items-center gap-2">
+                <Button
+                  className="lg:hidden"
+                  variant="outline"
+                  onClick={() => {
+                    setDraftFilters(filters);
+                    setMobileFilterOpen(true);
+                  }}
+                >
+                  Filters {activeFilterCount ? `(${activeFilterCount})` : ""}
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  {pagination.total} total
+                </div>
+              </div>
+            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="h-64 rounded-lg" />
+                ))}
+              </div>
+            ) : events.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No events found"
+                description="Try broadening your date range or removing one filter."
+                actionLabel="Reset filters"
+                onAction={clearFilters}
+              />
+            )}
+            {error ? (
+              <div className="mt-6 rounded-lg border border-danger/40 bg-surface-1 p-4">
+                <p className="text-sm text-danger">{error}</p>
+                <Button
+                  className="mt-3"
+                  variant="outline"
+                  onClick={() => {
+                    fetchEvents(pagination.page);
+                    pushToast({ title: "Retrying fetch..." });
+                  }}
+                >
                   Retry
                 </Button>
               </div>
-            )}
-
-            {/* Infinite scroll sentinel */}
+            ) : null}
             <div ref={sentinelRef} className="h-1" />
-
-            {/* Load more */}
-            {!loading && pagination.page < pagination.totalPages && (
-              <div className="mt-10 flex justify-center">
-                <Button variant="outline" size="lg" disabled={loadingMore} className="rounded-full px-8"
-                  onClick={() => { setLoadingMore(true); const np = pagination.page + 1; setPagination((p) => ({ ...p, page: np })); fetchEvents(np, true); }}>
-                  {loadingMore ? (
-                    <span className="flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Loading…</span>
-                  ) : "Load more events"}
+            {pagination.page < pagination.totalPages ? (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  variant="outline"
+                  disabled={loadingMore}
+                  onClick={() => {
+                    setLoadingMore(true);
+                    const nextPage = pagination.page + 1;
+                    setPagination((prev) => ({ ...prev, page: nextPage }));
+                    fetchEvents(nextPage, true);
+                  }}
+                >
+                  {loadingMore ? "Loading..." : "Load more"}
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
-      </div>
-
-      {/* ── Mobile filter bottom sheet ── */}
-      <BottomSheet
-        open={mobileFilterOpen}
-        onOpenChange={setMobileFilterOpen}
-        title={`Filters${activeFilterCount ? ` (${activeFilterCount})` : ""}`}
-        footer={
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={resetMobileFilters}>Reset</Button>
-            <Button className="flex-1 rounded-xl" onClick={applyMobileFilters}>Apply Filters</Button>
+        <BottomSheet
+          open={mobileFilterOpen}
+          onOpenChange={setMobileFilterOpen}
+          title={`Filters${activeFilterCount ? ` (${activeFilterCount})` : ""}`}
+          footer={
+            <div className="flex gap-2">
+              <Button variant="outline" className="w-full" onClick={resetMobileFilters}>
+                Reset
+              </Button>
+              <Button className="w-full" onClick={applyMobileFilters}>
+                Apply
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <SearchInput
+              value={draftFilters.search}
+              onChange={(value) => setDraftFilters((prev) => ({ ...prev, search: value }))}
+            />
+            <div>
+              <p className="mb-2 text-sm font-medium">Categories</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <Chip
+                    key={category.id}
+                    label={category.name}
+                    active={draftFilters.categories.includes(category.slug)}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        categories: toggleMultiValue(prev.categories, category.slug),
+                        subcategory: "",
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {areas.map((area) => (
+                  <Chip
+                    key={area.id}
+                    label={area.name}
+                    active={draftFilters.areas.includes(area.slug)}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        areas: toggleMultiValue(prev.areas, area.slug),
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        }
-      >
-        <FiltersPanel draft />
-      </BottomSheet>
+        </BottomSheet>
+      </div>
     </AppShell>
   );
 }
 
 export default function BrowsePage() {
   return (
-    <Suspense fallback={
-      <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-2xl" />)}
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div className="container mx-auto px-4 py-8">Loading browse...</div>}>
       <BrowsePageContent />
     </Suspense>
   );

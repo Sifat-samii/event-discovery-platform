@@ -20,6 +20,7 @@ export default function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
+<<<<<<< Current (Your changes)
     <div
       className={cn(
         "flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-surface-1/40 px-8 py-14 text-center",
@@ -33,6 +34,14 @@ export default function EmptyState({
       <p className="mt-2 max-w-xs text-sm text-muted-foreground">{description}</p>
       {actionLabel && onAction ? (
         <Button className="mt-6" size="sm" onClick={onAction}>
+=======
+    <div className="glass-surface p-10 text-center animate-fade-up">
+      {icon ? <div className="mb-4 flex justify-center text-muted-foreground">{icon}</div> : null}
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">{description}</p>
+      {actionLabel && onAction ? (
+        <Button className="mt-5" onClick={onAction}>
+>>>>>>> Incoming (Background Agent changes)
           {actionLabel}
         </Button>
       ) : null}

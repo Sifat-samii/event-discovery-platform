@@ -10,6 +10,100 @@ import { logClientError } from "@/lib/utils/client-logger";
 
 type ReminderPreference = "off" | "24h" | "3h" | "both";
 
+function ReminderSettingsTab({
+  savedEvents,
+  reminderPrefs,
+  updateReminder,
+}: {
+  savedEvents: any[];
+  reminderPrefs: Record<string, ReminderPreference>;
+  updateReminder: (eventId: string, pref: ReminderPreference) => Promise<void>;
+}) {
+  const [bulkPref, setBulkPref] = useState<ReminderPreference>("24h");
+  const [applying, setApplying] = useState(false);
+
+  const handleBulkApply = async () => {
+    setApplying(true);
+    for (const item of savedEvents) {
+      await updateReminder(item.event_id, bulkPref);
+    }
+    setApplying(false);
+  };
+
+  if (!savedEvents.length) {
+    return (
+      <div className="max-w-2xl text-center py-12">
+        <p className="text-muted-foreground mb-4">Save events first to configure reminders.</p>
+        <Button asChild>
+          <a href="/browse">Browse Events</a>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-xl border border-border bg-surface-1 p-5 space-y-4">
+        <h2 className="text-lg font-semibold">Bulk Reminder Preference</h2>
+        <p className="text-sm text-muted-foreground">
+          Set a default reminder preference for all your saved events at once.
+        </p>
+        <div className="flex items-center gap-3">
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={bulkPref}
+            onChange={(e) => setBulkPref(e.target.value as ReminderPreference)}
+          >
+            <option value="off">Off</option>
+            <option value="24h">24 hours before</option>
+            <option value="3h">3 hours before</option>
+            <option value="both">Both (24h + 3h)</option>
+          </select>
+          <Button onClick={handleBulkApply} disabled={applying}>
+            {applying ? "Applying..." : `Apply to All (${savedEvents.length})`}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface-1 p-5 space-y-3">
+        <h2 className="text-lg font-semibold">Per-Event Reminders</h2>
+        <div className="divide-y divide-border">
+          {savedEvents.map((item: any) => (
+            <div key={item.id} className="flex items-center justify-between gap-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {item.event?.title || "Untitled event"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {item.event?.start_date
+                    ? new Date(item.event.start_date).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "No date"}
+                </p>
+              </div>
+              <select
+                className="h-9 shrink-0 rounded-md border border-input bg-background px-2 text-sm"
+                value={reminderPrefs[item.event_id] || "24h"}
+                onChange={(e) =>
+                  updateReminder(item.event_id, e.target.value as ReminderPreference)
+                }
+              >
+                <option value="off">Off</option>
+                <option value="24h">24h</option>
+                <option value="3h">3h</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [savedEvents, setSavedEvents] = useState<any[]>([]);
@@ -84,8 +178,14 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <AppShell>
-        <main className="min-h-screen py-8">
-          <div className="text-center">Loading...</div>
+        <main className="min-h-screen py-10">
+          <div className="mx-auto max-w-5xl animate-pulse space-y-6">
+            <div className="h-8 w-48 rounded-xl bg-surface-2/60" />
+            <div className="h-12 w-80 rounded-xl bg-surface-2/60" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1, 2, 3].map((i) => <div key={i} className="h-64 rounded-2xl bg-surface-2/60" />)}
+            </div>
+          </div>
         </main>
       </AppShell>
     );
@@ -94,9 +194,9 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <AppShell>
-        <main className="min-h-screen py-8">
-          <div className="text-center">
-            <p className="mb-4">
+        <main className="min-h-screen py-10">
+          <div className="glass-surface mx-auto max-w-sm p-8 text-center animate-fade-up">
+            <p className="mb-5 text-muted-foreground">
               {userLoadFailed ? "Could not verify your account right now." : "Please log in to view your dashboard."}
             </p>
             <Button asChild>
@@ -109,7 +209,8 @@ export default function DashboardPage() {
   }
 
   const now = new Date();
-  const upcoming = savedEvents.filter(
+  const validSavedEvents = savedEvents.filter((item: any) => item.event != null);
+  const upcoming = validSavedEvents.filter(
     (item: any) => new Date(item.event?.start_date || 0) >= now
   );
 
@@ -140,35 +241,35 @@ export default function DashboardPage() {
       pushToast({ title: "Network error", description: "Could not update reminder.", type: "danger" });
     }
   };
-  const past = savedEvents.filter(
+  const past = validSavedEvents.filter(
     (item: any) => new Date(item.event?.start_date || 0) < now
   );
 
   return (
     <AppShell>
       <main className="min-h-screen py-8">
-        <h1 className="text-3xl font-bold mb-8">My Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-6">My Dashboard</h1>
 
         <Tabs defaultValue="upcoming" className="w-full">
           <TabsList>
-            <TabsTrigger value="saved">All Saved ({savedEvents.length})</TabsTrigger>
+            <TabsTrigger value="saved">All Saved ({validSavedEvents.length})</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
             <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
             <TabsTrigger value="settings">Reminder Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="saved" className="mt-6">
-            {savedEvents.length > 0 ? (
+            {validSavedEvents.length > 0 ? (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {savedEvents.map((item: any) => (
+                {validSavedEvents.map((item: any) => (
                   <div key={item.id} className="space-y-2">
                     <EventCard event={item.event} />
-                    <div className="rounded-lg border border-border bg-surface-1 p-3">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    <div className="rounded-xl border border-border/30 bg-surface-1/60 backdrop-blur-sm p-3">
+                      <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                         Reminder
                       </label>
                       <select
-                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        className="h-9 w-full rounded-lg border border-border/40 bg-surface-2/50 px-2 text-[13px] transition-colors hover:bg-surface-2/70 focus:ring-2 focus:ring-ring/30 focus:outline-none"
                         value={reminderPrefs[item.event_id] || "24h"}
                         onChange={(e) =>
                           updateReminder(item.event_id, e.target.value as ReminderPreference)
@@ -184,8 +285,8 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">No saved events yet.</p>
+              <div className="glass-surface p-10 text-center">
+                <p className="text-muted-foreground mb-5">No saved events yet.</p>
                 <Button asChild>
                   <a href="/browse">Browse Events</a>
                 </Button>
@@ -237,20 +338,7 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="settings" className="mt-6">
-            <div className="max-w-2xl space-y-4">
-              <h2 className="text-xl font-semibold">Email Reminder Settings</h2>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" defaultChecked />
-                  <span>24 hours before event</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" />
-                  <span>3 hours before event</span>
-                </label>
-              </div>
-              <Button>Save Settings</Button>
-            </div>
+            <ReminderSettingsTab savedEvents={validSavedEvents} reminderPrefs={reminderPrefs} updateReminder={updateReminder} />
           </TabsContent>
         </Tabs>
       </main>

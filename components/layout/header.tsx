@@ -4,15 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import SearchInput from "@/components/ui/search-input";
-import ThemeToggle from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
-const NAV_LINKS = [
-  { href: "/browse",                   label: "Browse" },
-  { href: "/browse?this_weekend=true", label: "This Weekend" },
-  { href: "/organizer",                label: "Submit Event" },
-];
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
@@ -22,7 +15,9 @@ export default function Header() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
     };
     getUser();
@@ -35,62 +30,45 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/40">
-      <div className="absolute inset-0 bg-background/85 backdrop-blur-xl" />
-
-        <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
-        {/* ── Logo ── */}
-        <Link href="/home" className="group flex shrink-0 items-center gap-2">
-          {/* Phoenix icon — gradient ring */}
-          <div className="relative flex h-8 w-8 items-center justify-center rounded-xl">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand-gold via-brand-teal to-brand-purple opacity-80 transition-opacity group-hover:opacity-100" />
-            <span className="relative text-sm leading-none">🪁</span>
+    <header className="sticky top-0 z-40 glass border-b border-border/20">
+      <div className="page-wrap flex items-center gap-5 py-3">
+        <Link href="/home" className="shrink-0 flex items-center gap-2.5 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 shine-border transition-transform duration-base ease-spring group-hover:scale-105 group-hover:bg-primary/20">
+            <span className="text-sm font-bold text-primary">KJ</span>
           </div>
-          <span className="text-gradient-brand text-[16px] font-black tracking-tight">
-            Kothay Jabo?
-          </span>
+          <span className="text-[15px] font-semibold tracking-tight hidden sm:inline group-hover:text-primary transition-colors">Kothay Jabo?</span>
         </Link>
 
-        {/* ── Search — desktop ── */}
-        <div className="mx-auto hidden w-full max-w-xs md:block">
+        <div className="hidden flex-1 max-w-md md:block">
           <SearchInput
             value={search}
             onChange={setSearch}
-            className="[&_input]:h-9 [&_input]:rounded-full [&_input]:border-border/50 [&_input]:bg-surface-2/70 [&_input]:text-sm [&_input]:focus:ring-brand-gold/20"
             onSubmit={() => {
               const value = search.trim();
-              router.push(
-                value ? `/browse?search=${encodeURIComponent(value)}` : "/browse"
-              );
+              router.push(value ? `/browse?search=${encodeURIComponent(value)}` : "/browse");
             }}
           />
         </div>
 
-        {/* ── Nav — desktop ── */}
-        <nav className="ml-auto hidden items-center gap-0.5 md:flex">
-          {NAV_LINKS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-1 md:flex ml-auto">
+          <Link href="/browse" className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-surface-2/50">
+            Browse
+          </Link>
+          <Link href="/browse?this_weekend=true" className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-surface-2/50">
+            This Weekend
+          </Link>
+          <Link href="/organizer" className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-surface-2/50">
+            Submit
+          </Link>
 
-          <div className="mx-2 h-4 w-px bg-border/60" />
-          <ThemeToggle />
-          <div className="mx-1 h-4 w-px bg-border/60" />
+          <div className="w-px h-5 bg-border/40 mx-1" />
 
           {user ? (
             <>
-              <Link
-                href="/dashboard"
-                className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-              >
+              <Link href="/dashboard" className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-surface-2/50">
                 Dashboard
               </Link>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
             </>
@@ -100,37 +78,18 @@ export default function Header() {
                 <Button variant="ghost" size="sm">Login</Button>
               </Link>
               <Link href="/signup">
-                <Button
-                  size="sm"
-                  className="rounded-full bg-gradient-to-r from-brand-gold to-brand-coral text-white hover:shadow-[0_0_18px_hsl(var(--brand-gold)/0.4)]"
-                >
-                  Sign Up
-                </Button>
+                <Button size="sm">Sign Up</Button>
               </Link>
             </>
           )}
         </nav>
 
-        {/* ── Mobile right ── */}
-        <div className="ml-auto flex items-center gap-1.5 md:hidden">
-          <button
-            onClick={() => router.push("/browse")}
-            aria-label="Search"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
+        <div className="ml-auto md:hidden">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/browse")} aria-label="Search">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
-          </button>
-          <ThemeToggle />
-          {user && (
-            <Link href="/dashboard">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-gold to-brand-coral text-xs font-bold text-white">
-                {(user.email?.[0] || "U").toUpperCase()}
-              </div>
-            </Link>
-          )}
+          </Button>
         </div>
       </div>
     </header>

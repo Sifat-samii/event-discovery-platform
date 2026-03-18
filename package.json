@@ -1,7 +1,11 @@
 {
-  "name": "events-project",
+  "name": "kothay-jabo",
   "version": "1.0.0",
+<<<<<<< Current (Your changes)
   "description": "Kothay Jabo? — Cultural Events Platform for Dhaka, Bangladesh",
+=======
+  "description": "Kothay Jabo? — Discover events, workshops, and experiences across Dhaka, Bangladesh",
+>>>>>>> Incoming (Background Agent changes)
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -38,8 +42,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.5.0",
-    "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.24",
@@ -48,6 +51,7 @@
     "postcss": "^8.5.6",
     "supabase": "^2.76.15",
     "tailwindcss": "^3.4.17",
+    "typescript": "5.9.3",
     "vitest": "^3.2.4"
   }
 }

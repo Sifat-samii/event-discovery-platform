@@ -3,9 +3,102 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { logClientError } from "@/lib/utils/client-logger";
+
+function AdminCreateEventDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const [description, setDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const { pushToast } = useToast();
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+    setCreating(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          start_date: startDate || null,
+          venue_name: venueName.trim() || null,
+          description: description.trim() || null,
+          status: "draft",
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to create event");
+      setTitle("");
+      setStartDate("");
+      setVenueName("");
+      setDescription("");
+      onCreated();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      setError(msg);
+      pushToast({ title: "Creation failed", description: msg, type: "danger" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <h3 className="text-lg font-semibold mb-4">Create New Event (Draft)</h3>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Title *</label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Start Date</label>
+            <Input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Venue</label>
+            <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="Venue name" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              className="w-full rounded-md border border-input bg-background p-3 text-sm"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description..."
+            />
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={creating}>{creating ? "Creating..." : "Create Draft"}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function AdminPanel() {
   const [user, setUser] = useState<any>(null);
@@ -18,6 +111,10 @@ export default function AdminPanel() {
   const [organizerFilter, setOrganizerFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
   const [page] = useState(1);
   const [limit] = useState(50);
   const { pushToast } = useToast();
@@ -31,7 +128,6 @@ export default function AdminPanel() {
       });
       if (organizerFilter !== "all") params.set("organizer", organizerFilter);
       if (dateFilter) params.set("date", dateFilter);
-      if (verifiedOnly) params.set("verified", "true");
       const response = await fetch(`/api/admin/events?${params.toString()}`);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Failed to load events");
@@ -41,7 +137,7 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  }, [dateFilter, limit, organizerFilter, page, pushToast, statusFilter, verifiedOnly]);
+  }, [dateFilter, limit, organizerFilter, page, pushToast, statusFilter]);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -201,7 +297,7 @@ export default function AdminPanel() {
   return (
     <AppShell>
       <main className="min-h-screen py-8">
-        <h1 className="text-3xl font-bold mb-8">Admin Panel</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-6">Admin Panel</h1>
 
         <Tabs defaultValue="events" className="w-full">
           <TabsList>
@@ -211,65 +307,70 @@ export default function AdminPanel() {
           </TabsList>
 
           <TabsContent value="events" className="mt-6">
-            <div className="mb-4 grid gap-3 rounded-xl border border-border bg-surface-1 p-4 md:grid-cols-5">
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All statuses</option>
-                <option value="draft">Draft</option>
-                <option value="pending">Pending</option>
-                <option value="published">Published</option>
-                <option value="expired">Expired</option>
-                <option value="archived">Archived</option>
-              </select>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="mb-5 sf-section">
+              <div className="grid gap-3 p-4 md:grid-cols-5">
+                <select
+                  className="h-10 rounded-xl border border-border/40 bg-surface-2/50 px-3 text-[13px] transition-colors hover:bg-surface-2/70 focus:ring-2 focus:ring-ring/30 focus:outline-none"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
+                  <option value="published">Published</option>
+                  <option value="expired">Expired</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <label className="flex items-center gap-2 text-[13px] text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Verified only
+                </label>
+                <select
+                  className="h-10 rounded-xl border border-border/40 bg-surface-2/50 px-3 text-[13px] transition-colors hover:bg-surface-2/70 focus:ring-2 focus:ring-ring/30 focus:outline-none"
+                  value={organizerFilter}
+                  onChange={(e) => setOrganizerFilter(e.target.value)}
+                >
+                  <option value="all">All organizers</option>
+                  {organizers.map((organizer) => (
+                    <option key={organizer.id} value={organizer.id}>
+                      {organizer.name}
+                    </option>
+                  ))}
+                </select>
                 <input
-                  type="checkbox"
-                  checked={verifiedOnly}
-                  onChange={(e) => setVerifiedOnly(e.target.checked)}
+                  type="date"
+                  className="h-10 rounded-xl border border-border/40 bg-surface-2/50 px-3 text-[13px] transition-colors hover:bg-surface-2/70 focus:ring-2 focus:ring-ring/30 focus:outline-none"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
                 />
-                Verified only
-              </label>
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={organizerFilter}
-                onChange={(e) => setOrganizerFilter(e.target.value)}
-              >
-                <option value="all">All organizers</option>
-                {organizers.map((organizer) => (
-                  <option key={organizer.id} value={organizer.id}>
-                    {organizer.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-              />
+              </div>
             </div>
             <div className="mb-4">
-              <Button>Create New Event</Button>
+              <Button onClick={() => setShowCreateDialog(true)}>Create New Event</Button>
             </div>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="sf-section overflow-hidden">
               <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="p-4 text-left">Title</th>
-                    <th className="p-4 text-left">Status</th>
-                    <th className="p-4 text-left">Date</th>
-                    <th className="p-4 text-left">Actions</th>
+                <thead>
+                  <tr className="border-b border-border/40 bg-surface-2/30">
+                    <th className="p-4 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</th>
+                    <th className="p-4 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="p-4 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="p-4 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {events.map((event) => (
-                    <tr key={event.id} className="border-t">
+                  {events
+                    .filter((event) => (verifiedOnly ? !!event.verified : true))
+                    .map((event) => (
+                    <tr key={event.id} className="border-t border-border/30 hover:bg-surface-2/20 transition-colors">
                       <td className="p-4">
-                        <div className="font-medium">{event.title}</div>
-                        <div className="text-xs text-muted-foreground">{event.organizer?.name || "Unknown organizer"}</div>
+                        <div className="text-[14px] font-medium tracking-tight">{event.title}</div>
+                        <div className="text-[12px] text-muted-foreground">{event.organizer?.name || "Unknown organizer"}</div>
                         {duplicateKeyCount[
                           `${event.title?.toLowerCase()}|${new Date(event.start_date).toDateString()}|${event.venue_name?.toLowerCase()}`
                         ] > 1 ? (
@@ -341,7 +442,7 @@ export default function AdminPanel() {
                       <div>
                         <h3 className="font-semibold">{report.reason}</h3>
                         <p className="text-sm text-muted-foreground">
-                          Event ID: {report.event_id}
+                          Event: {report.event?.title || report.event_id}
                         </p>
                       </div>
                       <span className="px-2 py-1 text-xs rounded bg-yellow-100">
@@ -370,17 +471,65 @@ export default function AdminPanel() {
           <TabsContent value="ai-extract" className="mt-6">
             <div className="max-w-2xl space-y-4">
               <h2 className="text-xl font-semibold">AI Event Extraction</h2>
+              <p className="text-sm text-muted-foreground">
+                Paste an event link or description text and the system will attempt to extract structured event data automatically.
+              </p>
               <div>
                 <label className="block text-sm font-medium mb-2">
                   Event Link or Text
                 </label>
                 <textarea
-                  className="w-full p-3 border rounded-md"
+                  className="w-full rounded-md border border-input bg-background p-3 text-sm"
                   rows={5}
                   placeholder="Paste event link or description here..."
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
                 />
               </div>
-              <Button>Extract Event Data</Button>
+              <Button
+                disabled={aiLoading || !aiInput.trim()}
+                onClick={async () => {
+                  setAiLoading(true);
+                  setAiResult(null);
+                  try {
+                    const isUrl = aiInput.trim().startsWith("http");
+                    const response = await fetch("/api/ai/extract", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(isUrl ? { url: aiInput.trim() } : { text: aiInput.trim() }),
+                    });
+                    const body = await response.json();
+                    if (!response.ok) throw new Error(body.error || "Extraction failed");
+                    setAiResult(body);
+                    pushToast({ title: "Event extracted and saved as draft", type: "success" });
+                    fetchEvents();
+                  } catch (error) {
+                    const msg = error instanceof Error ? error.message : "Unknown error";
+                    pushToast({ title: "Extraction failed", description: msg, type: "danger" });
+                    logClientError({ scope: "admin-ai-extract", message: msg });
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+              >
+                {aiLoading ? "Extracting..." : "Extract Event Data"}
+              </Button>
+              {aiResult && (
+                <div className="rounded-xl border border-success/30 bg-surface-1 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-success">Extraction Result</h3>
+                  <div className="grid gap-2 text-sm">
+                    {Object.entries(aiResult.extractedData || {}).map(([key, val]) => (
+                      <div key={key} className="flex gap-2">
+                        <span className="font-medium capitalize text-muted-foreground">{key}:</span>
+                        <span>{Array.isArray(val) ? (val as string[]).join(", ") : String(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Event saved as draft. You can find and publish it in the Events tab.
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -392,7 +541,7 @@ export default function AdminPanel() {
                 <div className="rounded-lg border border-border bg-surface-1 p-3 text-sm">
                   <p><span className="font-medium">Reason:</span> {selectedReport.reason}</p>
                   <p><span className="font-medium">Status:</span> {selectedReport.status}</p>
-                  <p><span className="font-medium">Event ID:</span> {selectedReport.event_id}</p>
+                  <p><span className="font-medium">Event:</span> {selectedReport.event?.title || selectedReport.event_id}</p>
                   <p className="mt-2 text-muted-foreground">{selectedReport.description || "No description."}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -402,16 +551,28 @@ export default function AdminPanel() {
                   <Button onClick={() => resolveReport(selectedReport.id, "resolved")}>
                     Mark Resolved
                   </Button>
-                  <Button variant="outline" asChild>
-                    <a href={`/events/${selectedReport.event_id}`} target="_blank" rel="noreferrer">
-                      Open event page
-                    </a>
-                  </Button>
+                  {selectedReport.event?.slug ? (
+                    <Button variant="outline" asChild>
+                      <a href={`/events/${selectedReport.event.slug}`} target="_blank" rel="noreferrer">
+                        Open event page
+                      </a>
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ) : null}
           </DialogContent>
         </Dialog>
+
+        <AdminCreateEventDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onCreated={() => {
+            fetchEvents();
+            setShowCreateDialog(false);
+            pushToast({ title: "Event created as draft", type: "success" });
+          }}
+        />
       </main>
     </AppShell>
   );

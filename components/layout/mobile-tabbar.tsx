@@ -16,6 +16,7 @@ export default function MobileTabbar() {
   const pathname = usePathname();
 
   return (
+<<<<<<< Current (Your changes)
     <div className="fixed bottom-3 left-3 right-3 z-40 md:hidden">
       <nav className="glass-elevated rounded-2xl overflow-hidden">
         <ul className="grid grid-cols-4">
@@ -55,5 +56,31 @@ export default function MobileTabbar() {
         </ul>
       </nav>
     </div>
+=======
+    <nav className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-border/15 md:hidden safe-area-bottom">
+      <ul className="grid grid-cols-4">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = pathname?.startsWith(item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className={cn(
+                  "flex min-h-[52px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all duration-base ease-spring",
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground/60 hover:text-muted-foreground"
+                )}
+              >
+                <Icon className={cn("h-[22px] w-[22px] transition-transform", active && "scale-110")} strokeWidth={active ? 2.2 : 1.8} />
+                <span>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+>>>>>>> Incoming (Background Agent changes)
   );
 }

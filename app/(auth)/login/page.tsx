@@ -1,182 +1,167 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import DhakaSkyline from "@/components/ui/dhaka-skyline";
-
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.10 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, type: "tween" } },
-} as const;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) setError(err === "missing_code" ? "Authentication failed. Please try again." : decodeURIComponent(err));
+  }, []);
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); }
-    else { router.push("/dashboard"); router.refresh(); }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      router.push("/dashboard");
+      router.refresh();
+    }
   };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
-    if (error) { setError(error.message); setLoading(false); }
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden">
-      {/* ── Animated orb background ── */}
-      <div className="fixed inset-0 bg-background">
-        <div className="pointer-events-none absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-brand-gold/12 blur-[110px] animate-orb-1" />
-        <div className="pointer-events-none absolute -right-24 top-16 h-[380px] w-[380px] rounded-full bg-brand-teal/10 blur-[90px] animate-orb-2" />
-        <div className="pointer-events-none absolute bottom-0 left-1/3 h-[320px] w-[320px] rounded-full bg-brand-purple/08 blur-[80px] animate-orb-3" />
-        <div className="absolute inset-0 opacity-[0.35] pattern-dots" />
-      </div>
+    <div className="relative flex min-h-screen items-center justify-center p-5 overflow-hidden">
+      <div className="orb orb-primary h-80 w-80 -top-32 -right-32 opacity-30" />
+      <div className="orb orb-blue h-64 w-64 -bottom-24 -left-24 opacity-20" style={{ animationDelay: "5s" }} />
 
-      {/* ── Skyline at bottom ── */}
-      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-0">
-        <DhakaSkyline className="w-full text-brand-teal/14 dark:text-brand-teal/08" />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 32, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-sm"
+      >
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 shine-border"
+          >
+            <span className="text-lg font-bold text-primary">KJ</span>
+          </motion.div>
+          <h1 className="text-2xl font-bold tracking-tight">Welcome Back</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Sign in to your account to continue
+          </p>
+        </div>
 
-      {/* ── Top nav ── */}
-      <div className="relative z-10 p-6">
-        <Link href="/home" className="inline-flex items-center gap-2 group">
-          <div className="relative flex h-8 w-8 items-center justify-center rounded-xl">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand-gold via-brand-teal to-brand-purple opacity-80" />
-            <span className="relative text-sm">🪁</span>
-          </div>
-          <span className="text-gradient-brand text-[16px] font-black tracking-tight">
-            Kothay Jabo?
-          </span>
-        </Link>
-      </div>
+        <div className="glass-surface shine-border p-6 space-y-5">
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-danger/20 bg-danger/8 px-4 py-3 text-sm text-danger"
+            >
+              {error}
+            </motion.div>
+          )}
 
-      {/* ── Card ── */}
-      <div className="relative z-10 flex flex-1 items-center justify-center px-4 pb-16">
-        <motion.div
-          className="w-full max-w-sm"
-          variants={container}
-          initial="hidden"
-          animate="show"
-        >
-          <div className="glass-surface rounded-3xl overflow-hidden shadow-[var(--shadow-2)]">
-            {/* Gradient top bar */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-brand-gold via-brand-teal to-brand-purple" />
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-[13px] font-medium text-text-secondary mb-1.5">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-[13px] font-medium text-text-secondary mb-1.5">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Enter your password"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
 
-            <div className="p-8">
-              <motion.div variants={item} className="mb-7">
-                <h1 className="text-2xl font-black">Welcome back</h1>
-                <p className="mt-1.5 text-sm text-muted-foreground">
-                  Sign in to your Kothay Jabo? account
-                </p>
-              </motion.div>
-
-              {error && (
-                <motion.div
-                  variants={item}
-                  className="mb-5 flex items-start gap-2.5 rounded-xl border border-danger/22 bg-danger/10 p-3.5 text-sm text-danger"
-                >
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
-                </motion.div>
-              )}
-
-              <form onSubmit={handleEmailLogin} className="space-y-4">
-                <motion.div variants={item} className="space-y-1.5">
-                  <label htmlFor="email" className="text-sm font-semibold">Email</label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      id="email" type="email" value={email}
-                      onChange={(e) => setEmail(e.target.value)} required
-                      placeholder="you@example.com"
-                      className="w-full rounded-xl border border-input bg-surface-2/60 py-2.5 pl-10 pr-3 text-sm placeholder:text-muted-foreground/60 focus:border-brand-gold/50 focus:outline-none focus:ring-2 focus:ring-brand-gold/12 transition-all"
-                    />
-                  </div>
-                </motion.div>
-
-                <motion.div variants={item} className="space-y-1.5">
-                  <label htmlFor="password" className="text-sm font-semibold">Password</label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      id="password" type={showPassword ? "text" : "password"}
-                      value={password} onChange={(e) => setPassword(e.target.value)}
-                      required placeholder="••••••••"
-                      className="w-full rounded-xl border border-input bg-surface-2/60 py-2.5 pl-10 pr-10 text-sm placeholder:text-muted-foreground/60 focus:border-brand-gold/50 focus:outline-none focus:ring-2 focus:ring-brand-gold/12 transition-all"
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </motion.div>
-
-                <motion.div variants={item}>
-                  <Button type="submit" className="h-11 w-full rounded-xl bg-gradient-to-r from-brand-gold to-brand-coral font-bold text-white shadow-[0_4px_20px_hsl(var(--brand-gold)/0.38)] hover:shadow-[0_4px_28px_hsl(var(--brand-gold)/0.52)] transition-all duration-200" disabled={loading}>
-                    {loading ? "Signing in…" : "Sign In"}
-                  </Button>
-                </motion.div>
-              </form>
-
-              <motion.div variants={item} className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/50" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-surface-1 px-3 text-xs text-muted-foreground">or continue with</span>
-                </div>
-              </motion.div>
-
-              <motion.div variants={item}>
-                <button type="button" onClick={handleGoogleLogin} disabled={loading}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-border/60 bg-surface-2/60 py-2.5 text-sm font-semibold transition-all hover:border-border hover:bg-surface-3 disabled:opacity-40"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden>
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                  </svg>
-                  Continue with Google
-                </button>
-              </motion.div>
-
-              <motion.p variants={item} className="mt-6 text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{" "}
-                <Link href="/signup" className="font-bold text-brand-gold hover:underline">
-                  Sign up free
-                </Link>
-              </motion.p>
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/30" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-surface-1 px-3 text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                or
+              </span>
             </div>
           </div>
-        </motion.div>
-      </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+            </svg>
+            Continue with Google
+          </Button>
+        </div>
+
+        <p className="mt-6 text-center text-[13px] text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <a href="/signup" className="font-medium text-primary hover:underline">
+            Sign up
+          </a>
+        </p>
+      </motion.div>
     </div>
   );
 }

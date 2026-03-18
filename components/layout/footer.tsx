@@ -20,6 +20,7 @@ const FOOTER_LINKS = {
 
 export default function Footer() {
   return (
+<<<<<<< Current (Your changes)
     <footer className="hidden border-t border-border/50 md:block">
       {/* Skyline decorative strip */}
       <div className="relative overflow-hidden bg-gradient-to-br from-brand-teal/6 via-brand-gold/4 to-brand-purple/6 py-6">
@@ -81,6 +82,66 @@ export default function Footer() {
             </div>
           </div>
         </div>
+=======
+    <footer className="mt-16 border-t border-border/30">
+      <div className="page-wrap py-12">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15">
+                <span className="text-xs font-bold text-primary">KJ</span>
+              </div>
+              <span className="text-sm font-semibold tracking-tight">Kothay Jabo?</span>
+            </div>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Discover events, workshops, and cultural experiences across Dhaka, Bangladesh.
+            </p>
+          </div>
+          <div>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Explore</h4>
+            <ul className="space-y-2.5">
+              <li>
+                <Link href="/browse" className="text-[13px] text-text-secondary hover:text-primary transition-colors">
+                  Browse Events
+                </Link>
+              </li>
+              <li>
+                <Link href="/categories" className="text-[13px] text-text-secondary hover:text-primary transition-colors">
+                  Categories
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">For Organizers</h4>
+            <ul className="space-y-2.5">
+              <li>
+                <Link href="/organizer" className="text-[13px] text-text-secondary hover:text-primary transition-colors">
+                  Submit Event
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">About</h4>
+            <ul className="space-y-2.5">
+              <li>
+                <Link href="/about" className="text-[13px] text-text-secondary hover:text-primary transition-colors">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-[13px] text-text-secondary hover:text-primary transition-colors">
+                  Contact
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="mt-10 pt-6 border-t border-border/20 text-center">
+          <p className="text-[12px] text-muted-foreground/60">&copy; {new Date().getFullYear()} Kothay Jabo? All rights reserved.</p>
+        </div>
+>>>>>>> Incoming (Background Agent changes)
       </div>
     </footer>
   );

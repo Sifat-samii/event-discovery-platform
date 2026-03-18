@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
+// Event queries
 export type EventFilters = {
   category?: string | string[];
   subcategory?: string;
@@ -72,6 +73,7 @@ export async function getEvents(filters?: EventFilters) {
     .is("deleted_at", null)
     .gte("end_date", now);
 
+  // Apply filters
   if (filters?.category) {
     if (Array.isArray(filters.category)) {
       const categoryIds = await resolveIdsBySlugList("event_categories", filters.category);
@@ -137,14 +139,17 @@ export async function getEvents(filters?: EventFilters) {
     query = query.or(`title.ilike.%${filters.search}%,venue_name.ilike.%${filters.search}%`);
   }
 
+  // Apply sorting
   if (filters?.sort === "soonest") {
     query = query.order("start_date", { ascending: true });
   } else if (filters?.sort === "recent") {
     query = query.order("created_at", { ascending: false });
   } else {
+    // Trending (default) - would need to join with clicks/saves
     query = query.order("created_at", { ascending: false });
   }
 
+  // Pagination
   const page = filters?.page || 1;
   const limit = filters?.limit || 20;
   const from = (page - 1) * limit;
@@ -155,94 +160,104 @@ export async function getEvents(filters?: EventFilters) {
   return query;
 }
 
+export async function getEventById(id: string) {
+  if (!hasSupabaseEnv()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select(`
+      *,
+      category:event_categories(*),
+      subcategory:event_subcategories(*),
+      organizer:organizers(*),
+      area:event_areas(*),
+      tags:event_tags_junction(event_tags(*))
+    `)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getEventBySlug(slug: string) {
   if (!hasSupabaseEnv()) return null;
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("events")
-      .select(`
-        *,
-        category:event_categories(*),
-        subcategory:event_subcategories(*),
-        organizer:organizers(*),
-        area:event_areas(*),
-        tags:event_tags_junction(event_tags(*))
-      `)
-      .eq("slug", slug)
-      .is("deleted_at", null)
-      .eq("status", "published")
-      .gte("end_date", new Date().toISOString())
-      .maybeSingle();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select(`
+      *,
+      category:event_categories(*),
+      subcategory:event_subcategories(*),
+      organizer:organizers(*),
+      area:event_areas(*),
+      tags:event_tags_junction(event_tags(*))
+    `)
+    .eq("slug", slug)
+    .is("deleted_at", null)
+    .eq("status", "published")
+    .gte("end_date", new Date().toISOString())
+    .maybeSingle();
 
-    if (error) throw error;
-    return data;
-  } catch {
-    return null;
-  }
+  if (error) throw error;
+  return data;
 }
 
 export async function getTrendingEvents(limit: number = 10) {
   if (!hasSupabaseEnv()) return [];
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("events")
-      .select(`
-        *,
-        category:event_categories(*),
-        organizer:organizers(*),
-        area:event_areas(*)
-      `)
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .gte("start_date", new Date().toISOString())
-      .limit(Math.max(limit * 3, 30));
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select(`
+      *,
+      category:event_categories(*),
+      organizer:organizers(*),
+      area:event_areas(*)
+    `)
+    .eq("status", "published")
+    .is("deleted_at", null)
+    .gte("start_date", new Date().toISOString())
+    .limit(Math.max(limit * 3, 30));
 
-    if (error) throw error;
-    const scores = await getTrendingScores((data || []).map((item: any) => item.id));
-    const ranked = [...(data || [])].sort(
-      (a: any, b: any) => (scores[b.id] || 0) - (scores[a.id] || 0)
-    );
-    return ranked.slice(0, limit);
-  } catch {
-    return [];
-  }
+  if (error) throw error;
+  const scores = await getTrendingScores((data || []).map((item: any) => item.id));
+  const ranked = [...(data || [])].sort(
+    (a: any, b: any) => (scores[b.id] || 0) - (scores[a.id] || 0)
+  );
+  return ranked.slice(0, limit);
 }
 
 export async function getCategories() {
   if (!hasSupabaseEnv()) return [];
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("event_categories")
-      .select(`
-        *,
-        subcategories:event_subcategories(*)
-      `)
-      .order("order", { ascending: true });
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_categories")
+    .select(`
+      *,
+      subcategories:event_subcategories(*)
+    `)
+    .order("order", { ascending: true });
 
-    if (error) throw error;
-    return data;
-  } catch {
-    return [];
-  }
+  if (error) throw error;
+  return data;
 }
 
 export async function getAreas() {
   if (!hasSupabaseEnv()) return [];
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("event_areas")
-      .select("*")
-      .order("name", { ascending: true });
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_areas")
+    .select("*")
+    .order("name", { ascending: true });
 
-    if (error) throw error;
-    return data;
-  } catch {
-    return [];
-  }
+  if (error) throw error;
+  return data;
+}
+
+export async function getFilterOptions() {
+  const [categories, areas] = await Promise.all([getCategories(), getAreas()]);
+  return { categories, areas };
 }
 
 export async function getSimilarEvents(
@@ -252,63 +267,55 @@ export async function getSimilarEvents(
   limit: number = 4
 ) {
   if (!hasSupabaseEnv()) return [];
-  try {
-    const supabase = await createClient();
-    let query = supabase
-      .from("events")
-      .select(`
-        *,
-        category:event_categories(*),
-        organizer:organizers(*),
-        area:event_areas(*)
-      `)
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .gte("end_date", new Date().toISOString())
-      .neq("id", eventId)
-      .order("start_date", { ascending: true })
-      .limit(limit);
+  const supabase = await createClient();
+  let query = supabase
+    .from("events")
+    .select(`
+      *,
+      category:event_categories(*),
+      organizer:organizers(*),
+      area:event_areas(*)
+    `)
+    .eq("status", "published")
+    .is("deleted_at", null)
+    .gte("end_date", new Date().toISOString())
+    .neq("id", eventId)
+    .order("start_date", { ascending: true })
+    .limit(limit);
 
-    if (categoryId) query = query.eq("category_id", categoryId);
-    if (areaId) query = query.eq("area_id", areaId);
+  if (categoryId) query = query.eq("category_id", categoryId);
+  if (areaId) query = query.eq("area_id", areaId);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
-  } catch {
-    return [];
-  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
 }
 
 export async function getTrendingScores(eventIds: string[]) {
   if (!eventIds.length || !hasSupabaseEnv()) return {} as Record<string, number>;
-  try {
-    const supabase = await createClient();
-    const windowStart = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const supabase = await createClient();
+  const windowStart = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [{ data: clicks }, { data: saves }] = await Promise.all([
-      supabase
-        .from("event_clicks")
-        .select("event_id")
-        .in("event_id", eventIds)
-        .gte("clicked_at", windowStart),
-      supabase
-        .from("saved_events")
-        .select("event_id")
-        .in("event_id", eventIds)
-        .is("deleted_at", null),
-    ]);
+  const [{ data: clicks }, { data: saves }] = await Promise.all([
+    supabase
+      .from("event_clicks")
+      .select("event_id")
+      .in("event_id", eventIds)
+      .gte("clicked_at", windowStart),
+    supabase
+      .from("saved_events")
+      .select("event_id")
+      .in("event_id", eventIds)
+      .is("deleted_at", null),
+  ]);
 
-    const scores: Record<string, number> = {};
-    for (const id of eventIds) scores[id] = 0;
-    for (const click of clicks || []) {
-      scores[click.event_id] = (scores[click.event_id] || 0) + 1;
-    }
-    for (const save of saves || []) {
-      scores[save.event_id] = (scores[save.event_id] || 0) + 4;
-    }
-    return scores;
-  } catch {
-    return {} as Record<string, number>;
+  const scores: Record<string, number> = {};
+  for (const id of eventIds) scores[id] = 0;
+  for (const click of clicks || []) {
+    scores[click.event_id] = (scores[click.event_id] || 0) + 1;
   }
+  for (const save of saves || []) {
+    scores[save.event_id] = (scores[save.event_id] || 0) + 4;
+  }
+  return scores;
 }

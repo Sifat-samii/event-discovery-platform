@@ -1,212 +1,109 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
-import { ArrowRight, ChevronDown } from "lucide-react";
-import { useRef } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import QuickChips from "@/components/events/quick-chips";
 import DhakaSkyline from "@/components/ui/dhaka-skyline";
-import KothayJaboBird from "@/components/ui/kothay-jabo-bird";
-import { cn } from "@/lib/utils";
 
-/* ── Letter colour map (matches the reference logo) ── */
-const KOTHAY = [
-  { ch: "K", color: "#00897B" },
-  { ch: "O", color: "#00A89E" },
-  { ch: "T", color: "#5C1E87" },
-  { ch: "H", color: "#5C1E87" },
-  { ch: "A", color: "#FF8C00" },
-  { ch: "Y", color: "#FF8A00" },
-] as const;
+const FLOATING_ICONS = [
+  { icon: "🎵", top: "14%",  left: "7%",   cls: "animate-float-1" },
+  { icon: "🎭", top: "20%",  right: "8%",  cls: "animate-float-2" },
+  { icon: "🎨", top: "55%",  left: "4%",   cls: "animate-float-3" },
+  { icon: "🎪", top: "60%",  right: "6%",  cls: "animate-float-4" },
+  { icon: "🎬", top: "35%",  left: "13%",  cls: "animate-float-5" },
+  { icon: "🏛️", top: "38%",  right: "14%", cls: "animate-float-2" },
+];
 
-const JABO = [
-  { ch: "J", color: "#FF6B1A" },
-  { ch: "A", color: "#EE4476" },
-  { ch: "B", color: "#E8174E" },
-  { ch: "O", color: "#9B27AF" },
-  { ch: "?", color: "gradient" },
-] as const;
-
-/* ── Framer Motion variant definitions ── */
-const rowStagger = {
+const container = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.055, delayChildren: 0.30 } },
+  show: { transition: { staggerChildren: 0.12 } },
 } as const;
 
-const jRowStagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.055, delayChildren: 0.60 } },
+const item = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, type: "tween" } },
 } as const;
-
-const letterVariant = {
-  hidden: { opacity: 0, y: 28, scale: 0.70 },
-  show: {
-    opacity: 1, y: 0, scale: 1,
-    transition: { type: "spring", stiffness: 320, damping: 18 },
-  },
-} as const;
-
-/* ── Parallax cursor hook ── */
-function useCursorParallax(strength = 18) {
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(useTransform(x, [-1, 1], [-strength, strength]), { stiffness: 90, damping: 18 });
-  const springY = useSpring(useTransform(y, [-1, 1], [-strength, strength]), { stiffness: 90, damping: 18 });
-
-  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    x.set((e.clientX - rect.left) / rect.width * 2 - 1);
-    y.set((e.clientY - rect.top) / rect.height * 2 - 1);
-  };
-  const onMouseLeave = () => { x.set(0); y.set(0); };
-  return { ref, onMouseMove, onMouseLeave, springX, springY };
-}
 
 export default function HeroSection() {
-  const { ref, onMouseMove, onMouseLeave, springX, springY } = useCursorParallax(14);
-
   return (
-    <section
-      ref={ref}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      className="relative flex min-h-[92vh] w-full flex-col items-center justify-center overflow-hidden"
-    >
-      {/* ── Animated background orbs ── */}
+    <section className="relative flex min-h-[88vh] w-full flex-col overflow-hidden">
+      {/* ── Animated mesh background ── */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-surface-1 via-background to-background" />
+        <div className="absolute inset-0 bg-gradient-to-br from-surface-1 via-background to-surface-2" />
+        {/* Gold orb */}
         <div
-          className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full blur-[130px] animate-orb-1"
-          style={{ background: "hsl(var(--brand-gold) / 0.11)" }}
+          className="absolute -left-32 -top-32 h-[520px] w-[520px] rounded-full blur-[110px] animate-orb-1"
+          style={{ background: "hsl(var(--brand-gold) / 0.15)" }}
         />
+        {/* Teal orb */}
         <div
-          className="absolute -right-16 top-8 h-[400px] w-[400px] rounded-full blur-[110px] animate-orb-2"
-          style={{ background: "hsl(var(--brand-teal) / 0.09)" }}
+          className="absolute -right-24 top-12 h-[420px] w-[420px] rounded-full blur-[90px] animate-orb-2"
+          style={{ background: "hsl(var(--brand-teal) / 0.12)" }}
         />
+        {/* Purple orb */}
         <div
-          className="absolute bottom-12 left-1/3 h-[340px] w-[340px] rounded-full blur-[90px] animate-orb-3"
-          style={{ background: "hsl(var(--brand-purple) / 0.07)" }}
+          className="absolute bottom-12 left-1/3 h-[360px] w-[360px] rounded-full blur-[80px] animate-orb-3"
+          style={{ background: "hsl(var(--brand-purple) / 0.09)" }}
         />
-        <div className="absolute inset-0 opacity-[0.22] pattern-dots" />
+        {/* Coral orb */}
+        <div
+          className="absolute bottom-0 right-1/4 h-[280px] w-[280px] rounded-full blur-[70px] animate-orb-2"
+          style={{ background: "hsl(var(--brand-coral) / 0.09)" }}
+        />
+        <div className="absolute inset-0 opacity-30 pattern-dots" />
       </div>
 
-      {/* ── Main content ── */}
-      <div className="relative z-10 flex w-full flex-col items-center px-4 pt-10 pb-6 sm:px-6">
-
-        {/* ══ LOGO BLOCK: bird on left, coloured text on right ══ */}
-        <div className="flex w-full max-w-5xl items-center justify-center gap-2 sm:gap-4 md:gap-6 xl:gap-8">
-
-          {/* ── Phoenix bird + cityscape ── */}
-          <motion.div
-            style={{ x: springX, y: springY }}
-            className="shrink-0"
-            initial={{ opacity: 0, x: -36, scale: 0.86 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            transition={{ duration: 0.85, type: "spring", stiffness: 100, damping: 14 }}
-            whileHover={{ scale: 1.05, transition: { type: "spring", stiffness: 220, damping: 14 } }}
-          >
-            {/* Responsive width: scales with viewport, capped at 380px */}
-            <div className="w-[min(36vw,180px)] sm:w-[min(36vw,240px)] md:w-[min(38vw,300px)] lg:w-[min(36vw,360px)] xl:w-[380px]">
-              <KothayJaboBird className="h-auto w-full drop-shadow-2xl" />
-            </div>
-          </motion.div>
-
-          {/* ── "KOTHAY JABO?" in per-letter colours ── */}
-          <div className="flex min-w-0 flex-col items-start">
-
-            {/* Row 1: K O T H A Y */}
-            <motion.div
-              className="flex font-black leading-[0.92] tracking-tight"
-              style={{ fontSize: "clamp(2.4rem, 7.8vw, 9.8rem)" }}
-              variants={rowStagger}
-              initial="hidden"
-              animate="show"
-            >
-              {KOTHAY.map(({ ch, color }, i) => (
-                <motion.span
-                  key={i}
-                  variants={letterVariant}
-                  className="cursor-default select-none"
-                  style={{ color, display: "inline-block" }}
-                  whileHover={{
-                    y: -10,
-                    scale: 1.14,
-                    filter: `drop-shadow(0 6px 16px ${color}66)`,
-                    transition: { type: "spring", stiffness: 420, damping: 12 },
-                  }}
-                  whileTap={{ scale: 0.92 }}
-                >
-                  {ch}
-                </motion.span>
-              ))}
-            </motion.div>
-
-            {/* Row 2: J A B O ? */}
-            <motion.div
-              className="flex font-black leading-[0.92] tracking-tight"
-              style={{ fontSize: "clamp(2.4rem, 7.8vw, 9.8rem)" }}
-              variants={jRowStagger}
-              initial="hidden"
-              animate="show"
-            >
-              {JABO.map(({ ch, color }, i) => (
-                <motion.span
-                  key={i}
-                  variants={letterVariant}
-                  className={cn(
-                    "cursor-default select-none",
-                    color === "gradient" && "text-gradient-brand"
-                  )}
-                  style={
-                    color !== "gradient"
-                      ? { color, display: "inline-block" }
-                      : { display: "inline-block" }
-                  }
-                  whileHover={{
-                    y: -10,
-                    scale: 1.14,
-                    filter: color !== "gradient" ? `drop-shadow(0 6px 16px ${color}66)` : undefined,
-                    transition: { type: "spring", stiffness: 420, damping: 12 },
-                  }}
-                  whileTap={{ scale: 0.92 }}
-                >
-                  {ch}
-                </motion.span>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-
-        {/* ── Tagline ── */}
-        <motion.div
-          className="mt-6 text-center"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.95, duration: 0.5 }}
+      {/* ── Floating cultural icons (lg only) ── */}
+      {FLOATING_ICONS.map((fi, i) => (
+        <div
+          key={i}
+          className={`pointer-events-none absolute hidden text-3xl opacity-35 lg:block ${fi.cls}`}
+          style={{ top: fi.top, left: fi.left, right: fi.right }}
         >
-          <p className="text-base font-semibold text-foreground/75 sm:text-lg md:text-xl">
-            Where to go in Dhaka — we&apos;ll tell you.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Concerts · Workshops · Exhibitions · Theatre · Festivals
-          </p>
+          {fi.icon}
+        </div>
+      ))}
+
+      {/* ── Main content ── */}
+      <motion.div
+        className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-28 pt-16 text-center sm:px-8 md:pt-24"
+        variants={container}
+        initial="hidden"
+        animate="show"
+      >
+        {/* Badge */}
+        <motion.div variants={item}>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold"
+               style={{ borderColor: "hsl(var(--brand-gold) / 0.3)", background: "hsl(var(--brand-gold) / 0.1)", color: "hsl(var(--brand-gold))" }}>
+            <Sparkles className="h-3.5 w-3.5" />
+            Dhaka&apos;s Premier Events Guide
+          </div>
         </motion.div>
 
-        {/* ── CTA Buttons ── */}
-        <motion.div
-          className="mt-7 flex flex-wrap justify-center gap-3"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1, duration: 0.45 }}
+        {/* Headline */}
+        <motion.h1
+          variants={item}
+          className="mb-4 text-5xl font-black leading-[1.02] tracking-tighter sm:text-6xl md:text-8xl lg:text-9xl"
         >
+          <span className="text-gradient-brand">KOTHAY</span>
+          <br />
+          <span className="text-gradient-brand">JABO?</span>
+        </motion.h1>
+
+        {/* Sub-headline */}
+        <motion.p variants={item} className="mx-auto mb-3 max-w-xl text-lg font-medium text-foreground/80 md:text-xl">
+          Where to go in Dhaka — we&apos;ll tell you.
+        </motion.p>
+        <motion.p variants={item} className="mx-auto mb-10 max-w-md text-sm text-muted-foreground md:text-base">
+          Concerts · Workshops · Exhibitions · Theatre · Festivals
+        </motion.p>
+
+        {/* CTAs */}
+        <motion.div variants={item} className="mb-10 flex flex-wrap justify-center gap-3">
           <Link href="/browse">
-            <Button
-              size="lg"
-              className="gap-2 rounded-full px-8 shadow-[0_0_28px_hsl(var(--brand-gold)/0.36)] hover:shadow-[0_0_44px_hsl(var(--brand-gold)/0.55)] transition-all duration-200"
-            >
+            <Button size="lg" className="gap-2 rounded-full px-8 shadow-[0_0_28px_hsl(var(--brand-gold)/0.38)] hover:shadow-[0_0_40px_hsl(var(--brand-gold)/0.52)]">
               Explore Events
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -218,37 +115,20 @@ export default function HeroSection() {
           </Link>
         </motion.div>
 
-        {/* ── Quick filter chips ── */}
-        <motion.div
-          className="mt-9 w-full max-w-3xl"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.3, duration: 0.5 }}
-        >
+        {/* Quick chips */}
+        <motion.div variants={item} className="w-full max-w-3xl">
           <QuickChips />
         </motion.div>
-      </div>
-
-      {/* ── Dhaka skyline (dual-layer depth) ── */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10">
-        <DhakaSkyline
-          className="w-full"
-          style={{ color: "hsl(var(--brand-teal) / 0.15)" }}
-        />
-        <DhakaSkyline
-          className="absolute bottom-0 left-6 w-full scale-x-[1.05]"
-          style={{ color: "hsl(var(--brand-gold) / 0.08)" }}
-        />
-      </div>
-
-      {/* ── Scroll nudge ── */}
-      <motion.div
-        className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20"
-        animate={{ y: [0, 7, 0] }}
-        transition={{ repeat: Infinity, duration: 2.0, ease: "easeInOut" }}
-      >
-        <ChevronDown className="h-5 w-5 text-muted-foreground/35" />
       </motion.div>
+
+      {/* ── Dhaka Skyline (two-layer parallax) ── */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10">
+        <DhakaSkyline className="w-full" style={{ color: "hsl(var(--brand-teal) / 0.16)" }} />
+        <DhakaSkyline
+          className="absolute bottom-0 left-4 w-full scale-x-[1.04]"
+          style={{ color: "hsl(var(--brand-gold) / 0.09)" }}
+        />
+      </div>
     </section>
   );
 }

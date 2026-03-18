@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleRoute } from "@/lib/api/handle-route";
 import { sanitizeText, sanitizeUuid } from "@/lib/security/sanitize";
 import { normalizePagination, paginatedResponse } from "@/lib/api/pagination";
+import { ensureUniqueEventSlug } from "@/lib/db/slug";
 
 export const GET = handleRoute(
   {
@@ -56,6 +57,44 @@ export const GET = handleRoute(
         extra: { correlationId: context.correlationId },
       })
     );
+  }
+);
+
+export const POST = handleRoute(
+  {
+    route: "/api/admin/events",
+    action: "admin-create-event",
+    requireAuth: true,
+    requiredRole: "admin",
+    rateLimitKey: "admin-events-create",
+    rateLimitLimit: 30,
+  },
+  async (request: NextRequest, context) => {
+    const body = await request.json().catch(() => ({}));
+    const title = sanitizeText(body?.title, 300);
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    const slug = await ensureUniqueEventSlug(title);
+    const { data, error } = await context.supabase
+      .from("events")
+      .insert({
+        title,
+        slug,
+        description: sanitizeText(body?.description, 5000) || null,
+        start_date: body?.start_date || null,
+        venue_name: sanitizeText(body?.venue_name, 300) || null,
+        status: "draft",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message, correlationId: context.correlationId }, { status: 500 });
+    }
+
+    return NextResponse.json({ event: data, correlationId: context.correlationId }, { status: 201 });
   }
 );
 

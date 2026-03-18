@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD)
-## Cultural Events Platform - MVP
+## Kothay Jabo? — MVP
 
 ### 1. Product Vision
 

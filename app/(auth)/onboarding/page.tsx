@@ -1,31 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import { logClientError } from "@/lib/utils/client-logger";
+
+const FALLBACK_CATEGORIES = [
+  "Music",
+  "Theatre & Performing Arts",
+  "Dance",
+  "Visual Arts",
+  "Film & Media",
+  "Literature",
+  "Educational / Skill-based",
+  "Cultural Festivals",
+  "Hobby & Lifestyle",
+  "Competitions",
+];
+const FALLBACK_AREAS = ["Dhanmondi", "Gulshan", "Uttara", "Banani", "Mirpur", "Old Dhaka"];
 
 export default function OnboardingPage() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [emailReminders, setEmailReminders] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
+  const [areas, setAreas] = useState<string[]>(FALLBACK_AREAS);
   const router = useRouter();
+  const { pushToast } = useToast();
 
-  // This would be fetched from the database
-  const categories = [
-    "Music",
-    "Theatre & Performing Arts",
-    "Dance",
-    "Visual Arts",
-    "Film & Media",
-    "Literature",
-    "Educational / Skill-based",
-    "Cultural Festivals",
-    "Hobby & Lifestyle",
-    "Competitions",
-  ];
-  const areas = ["Dhanmondi", "Gulshan", "Uttara", "Banani", "Mirpur", "Old Dhaka"];
+  const fetchMeta = useCallback(async () => {
+    try {
+      const response = await fetch("/api/events/filters-meta");
+      if (response.ok) {
+        const body = await response.json();
+        if (body.categories?.length) setCategories(body.categories.map((c: any) => c.name));
+        if (body.areas?.length) setAreas(body.areas.map((a: any) => a.name));
+      }
+    } catch {
+      // use fallbacks
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMeta();
+  }, [fetchMeta]);
 
   const handleInterestToggle = (interest: string) => {
     setSelectedInterests((prev) =>
@@ -34,8 +54,11 @@ export default function OnboardingPage() {
         : [...prev, interest]
     );
   };
+
   const handleAreaToggle = (area: string) => {
-    setSelectedAreas((prev) => (prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]));
+    setSelectedAreas((prev) =>
+      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,14 +76,20 @@ export default function OnboardingPage() {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        throw new Error(body?.error || "Failed to save onboarding preferences");
+        throw new Error(body?.error || "Failed to save preferences");
       }
+<<<<<<< Current (Your changes)
+=======
+      pushToast({ title: "Preferences saved", type: "success" });
+>>>>>>> Incoming (Background Agent changes)
       router.push("/dashboard");
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Something went wrong";
+      pushToast({ title: "Could not save preferences", description: msg, type: "danger" });
       logClientError({
         scope: "onboarding",
         message: "Failed to persist onboarding preferences",
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
       });
     } finally {
       setLoading(false);
@@ -72,45 +101,57 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-2xl space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-center">
+    <div className="flex min-h-screen items-center justify-center p-5">
+      <div className="w-full max-w-2xl animate-spring-in">
+        <div className="text-center mb-8">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15">
+            <span className="text-lg font-bold text-primary">E</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">
             What are you interested in?
           </h1>
-          <p className="mt-2 text-center text-muted-foreground">
-            Select your interests to get personalized event recommendations (optional)
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Select your interests to get personalized event recommendations
           </p>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => handleInterestToggle(category)}
-                className={`p-4 rounded-lg border-2 text-left transition-colors ${
-                  selectedInterests.includes(category)
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+          <div className="sf-section">
+            <div className="px-4 pt-3.5 pb-2">
+              <h2 className="text-[13px] font-semibold tracking-tight">Categories</h2>
+            </div>
+            <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-3 gap-2">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => handleInterestToggle(category)}
+                  className={`rounded-xl border p-3.5 text-left text-[13px] font-medium transition-all duration-base ease-spring active:scale-[0.97] ${
+                    selectedInterests.includes(category)
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border/30 bg-surface-2/30 text-muted-foreground hover:border-border/50 hover:text-foreground"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
           </div>
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">Preferred areas</h2>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+
+          <div className="sf-section">
+            <div className="px-4 pt-3.5 pb-2">
+              <h2 className="text-[13px] font-semibold tracking-tight">Preferred Areas</h2>
+            </div>
+            <div className="px-4 pb-4 grid grid-cols-2 gap-2 md:grid-cols-3">
               {areas.map((area) => (
                 <button
                   key={area}
                   type="button"
                   onClick={() => handleAreaToggle(area)}
-                  className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                  className={`rounded-xl border p-3 text-left text-[13px] font-medium transition-all duration-base ease-spring active:scale-[0.97] ${
                     selectedAreas.includes(area)
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-primary/50"
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border/30 bg-surface-2/30 text-muted-foreground hover:border-border/50 hover:text-foreground"
                   }`}
                 >
                   {area}
@@ -118,24 +159,28 @@ export default function OnboardingPage() {
               ))}
             </div>
           </div>
-          <label className="flex items-center gap-2 rounded-lg border border-border p-3">
-            <input
-              type="checkbox"
-              checked={emailReminders}
-              onChange={(e) => setEmailReminders(e.target.checked)}
-            />
-            <span className="text-sm">Enable email reminders for saved events</span>
-          </label>
-          <div className="flex gap-4">
+
+          <div className="sf-section">
+            <label className="sf-row gap-3 cursor-pointer hover:bg-surface-2/30 transition-colors rounded-2xl">
+              <span className="text-[14px] font-medium flex-1">Enable email reminders</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={emailReminders}
+                  onChange={(e) => setEmailReminders(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div className="h-[26px] w-[46px] rounded-full bg-surface-3 transition-colors peer-checked:bg-primary" />
+                <div className="absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow-xs transition-transform peer-checked:translate-x-5" />
+              </div>
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-2">
             <Button type="submit" className="flex-1" disabled={loading}>
               {loading ? "Saving..." : "Continue"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSkip}
-              disabled={loading}
-            >
+            <Button type="button" variant="outline" onClick={handleSkip} disabled={loading}>
               Skip
             </Button>
           </div>

@@ -26,10 +26,17 @@ export function useToast() {
 }
 
 const typeStyles: Record<ToastType, string> = {
-  default: "border-border bg-surface-1 text-foreground",
-  success: "border-success/40 bg-surface-1 text-foreground",
-  warning: "border-warning/40 bg-surface-1 text-foreground",
-  danger: "border-danger/40 bg-surface-1 text-foreground",
+  default: "border-border/40 bg-surface-1/95",
+  success: "border-success/25 bg-surface-1/95",
+  warning: "border-warning/25 bg-surface-1/95",
+  danger: "border-danger/25 bg-surface-1/95",
+};
+
+const dotColors: Record<ToastType, string> = {
+  default: "bg-primary",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -49,9 +56,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => [...prev, { id, ...toast }]);
     const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
+<<<<<<< Current (Your changes)
       timersRef.current.delete(id);
     }, 2500);
     timersRef.current.set(id, timer);
+=======
+    }, 3000);
+>>>>>>> Incoming (Background Agent changes)
   }, []);
 
   return (
@@ -63,21 +74,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={toast.id}
             open
             className={cn(
-              "rounded-lg border p-4 shadow-surface-2 data-[state=open]:animate-in data-[state=closed]:animate-out",
+              "rounded-2xl border px-4 py-3 backdrop-blur-xl shadow-lg animate-spring-in",
               typeStyles[toast.type ?? "default"]
             )}
           >
-            <ToastPrimitives.Title className="text-sm font-semibold">
-              {toast.title}
-            </ToastPrimitives.Title>
-            {toast.description ? (
-              <ToastPrimitives.Description className="mt-1 text-xs text-muted-foreground">
-                {toast.description}
-              </ToastPrimitives.Description>
-            ) : null}
+            <div className="flex items-start gap-3">
+              <div className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", dotColors[toast.type ?? "default"])} />
+              <div className="min-w-0">
+                <ToastPrimitives.Title className="text-sm font-semibold tracking-tight">
+                  {toast.title}
+                </ToastPrimitives.Title>
+                {toast.description ? (
+                  <ToastPrimitives.Description className="mt-0.5 text-xs text-muted-foreground">
+                    {toast.description}
+                  </ToastPrimitives.Description>
+                ) : null}
+              </div>
+            </div>
           </ToastPrimitives.Root>
         ))}
-        <ToastPrimitives.Viewport className="fixed bottom-20 right-4 z-50 flex w-[320px] flex-col gap-2 md:bottom-4" />
+        <ToastPrimitives.Viewport className="fixed bottom-20 right-4 z-[100] flex w-[340px] flex-col gap-2 md:bottom-6" />
       </ToastPrimitives.Provider>
     </ToastContext.Provider>
   );
