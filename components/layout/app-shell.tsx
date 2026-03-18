@@ -12,7 +12,7 @@ export default function AppShell({ children, showFooter = true }: AppShellProps)
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <main className="page-wrap pb-20 md:pb-8">{children}</main>
+      <main className="page-wrap pb-28 md:pb-10">{children}</main>
       {showFooter ? <Footer /> : null}
       <MobileTabbar />
     </div>

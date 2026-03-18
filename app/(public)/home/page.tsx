@@ -5,18 +5,31 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import QuickChips from "@/components/events/quick-chips";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { createMetadata } from "@/lib/metadata/defaults";
+import { ArrowRight, TrendingUp, Sparkles, Clock, Tag } from "lucide-react";
 
 type HomeEvent = Awaited<ReturnType<typeof getTrendingEvents>>[number];
 type HomeCategory = { id: string; name: string; slug: string };
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  music: "🎵",
+  "theatre-performing-arts": "🎭",
+  dance: "💃",
+  "visual-arts": "🎨",
+  "film-media": "🎬",
+  literature: "📚",
+  "educational-skill-based": "🧠",
+  "cultural-festivals": "🎪",
+  "hobby-lifestyle": "✨",
+  competitions: "🏆",
+};
 
 export const metadata: Metadata = createMetadata({
   title: "Discover Cultural Events in Dhaka | Events Dhaka",
   description:
     "Find concerts, workshops, exhibitions, and more happening across Dhaka, Bangladesh.",
-  alternates: {
-    canonical: "/home",
-  },
+  alternates: { canonical: "/home" },
   openGraph: {
     title: "Discover Cultural Events in Dhaka | Events Dhaka",
     description:
@@ -25,117 +38,214 @@ export const metadata: Metadata = createMetadata({
   },
 });
 
+function SectionHeader({
+  icon,
+  title,
+  viewAllHref,
+  viewAllLabel = "View all",
+}: {
+  icon?: ReactNode;
+  title: string;
+  viewAllHref: string;
+  viewAllLabel?: string;
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        {icon && <span className="text-primary">{icon}</span>}
+        <h2 className="text-xl font-bold">{title}</h2>
+      </div>
+      <Link
+        href={viewAllHref}
+        className="group flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary"
+      >
+        {viewAllLabel}
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </div>
+  );
+}
+
 export default async function HomePage() {
-  // Fetch data (in production, these would be real queries)
   const trendingEvents = await getTrendingEvents(8);
   const categories = await getCategories();
 
-  // Get this weekend events (simplified - would need proper date logic)
-  const thisWeekendEvents = trendingEvents.slice(0, 6);
-  const freeEvents = trendingEvents.filter((e: HomeEvent) => e?.price_type === "free").slice(0, 6);
+  const freeEvents = trendingEvents
+    .filter((e: HomeEvent) => e?.price_type === "free")
+    .slice(0, 6);
   const newlyAdded = trendingEvents.slice(0, 6);
 
   return (
     <AppShell>
-      <div className="min-h-screen py-6">
-        {/* Hero Section */}
-        <section className="rounded-xl bg-gradient-to-b from-primary/10 to-surface-1 py-12">
-          <div className="page-wrap text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Discover Cultural Events in Dhaka
+      <div className="space-y-16 py-6 pb-10">
+
+        {/* ── Hero ─────────────────────────────────────── */}
+        <section className="relative overflow-hidden rounded-2xl px-6 py-16 md:py-24">
+          {/* Layered ambient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-surface-1 via-background to-surface-1" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-16 -top-16 h-80 w-80 rounded-full bg-primary/18 blur-[90px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 top-8 h-64 w-64 rounded-full bg-amber-400/10 blur-[72px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-orange-500/8 blur-[60px]"
+          />
+
+          {/* Content */}
+          <div className="relative z-10 mx-auto max-w-2xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/22 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Dhaka&apos;s Cultural Events Platform
+            </div>
+
+            <h1 className="mb-4 text-4xl font-bold leading-[1.12] tracking-tight md:text-6xl">
+              Discover
+              <br />
+              <span className="gradient-text">Cultural Events</span>
+              <br />
+              In Dhaka
             </h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Find concerts, workshops, exhibitions, and more happening across the city
+
+            <p className="mx-auto mb-8 max-w-lg text-lg leading-relaxed text-muted-foreground md:text-xl">
+              Concerts, workshops, exhibitions, theatre —{" "}
+              <br className="hidden sm:block" />
+              all happening across the city.
             </p>
-            <div className="flex gap-4 justify-center">
+
+            <div className="mb-8 flex flex-wrap justify-center gap-3">
               <Link href="/browse">
-                <Button size="lg">Browse Events</Button>
+                <Button size="lg" className="h-12 gap-2 px-6">
+                  Browse Events
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </Link>
               <Link href="/organizer">
-                <Button variant="outline" size="lg">Submit Event</Button>
+                <Button variant="outline" size="lg" className="h-12 px-6">
+                  Submit Event
+                </Button>
               </Link>
             </div>
+
             <QuickChips />
           </div>
         </section>
 
-        {/* Trending This Week */}
-        <section className="py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Trending This Week</h2>
-            <Link href="/browse?sort=trending">
-              <Button variant="ghost">View All</Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trendingEvents.map((event: HomeEvent) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+        {/* ── Trending ─────────────────────────────────── */}
+        <section>
+          <SectionHeader
+            icon={<TrendingUp className="h-5 w-5" />}
+            title="Trending This Week"
+            viewAllHref="/browse?sort=trending"
+          />
+          {trendingEvents.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {trendingEvents.map((event: HomeEvent) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          ) : (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No trending events right now. Check back soon.
+            </p>
+          )}
         </section>
 
-        {/* This Weekend */}
-        <section className="rounded-xl bg-surface-1 py-12">
-          <div className="page-wrap">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">This Weekend</h2>
-              <Link href="/browse?this_weekend=true">
-                <Button variant="ghost">View All</Button>
-              </Link>
+        {/* ── Categories ───────────────────────────────── */}
+        {categories.length > 0 && (
+          <section>
+            <SectionHeader
+              title="Browse by Category"
+              viewAllHref="/browse"
+              icon={<Tag className="h-5 w-5" />}
+            />
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              {categories.slice(0, 12).map((category: HomeCategory) => (
+                <Link
+                  key={category.id}
+                  href={`/browse?category=${category.slug}`}
+                  className="group flex flex-col items-center gap-2 rounded-xl border border-border/50 bg-surface-1 p-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/28 hover:bg-surface-2 hover:shadow-[0_4px_16px_rgba(255,138,0,0.06)]"
+                >
+                  <span className="text-2xl leading-none">
+                    {CATEGORY_EMOJI[category.slug] ?? "🎪"}
+                  </span>
+                  <span className="text-xs font-medium leading-tight text-muted-foreground transition-colors group-hover:text-foreground">
+                    {category.name}
+                  </span>
+                </Link>
+              ))}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {thisWeekendEvents.map((event: HomeEvent) => (
+          </section>
+        )}
+
+        {/* ── This Weekend ─────────────────────────────── */}
+        <section className="relative overflow-hidden rounded-2xl border border-border/40 bg-surface-1/60 px-6 py-8">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/10 blur-[60px]"
+          />
+          <div className="relative z-10">
+            <SectionHeader
+              icon={<Clock className="h-5 w-5" />}
+              title="This Weekend"
+              viewAllHref="/browse?this_weekend=true"
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {trendingEvents.slice(0, 3).map((event: HomeEvent) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
           </div>
         </section>
 
-        {/* Free Events */}
-        <section className="py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Free Events</h2>
-            <Link href="/browse?price_type=free">
-              <Button variant="ghost">View All</Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {freeEvents.map((event: HomeEvent) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        </section>
-
-        {/* Categories */}
-        <section className="rounded-xl bg-surface-1 py-12">
-          <div className="page-wrap">
-            <h2 className="text-2xl font-bold mb-6">Browse by Category</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {categories.slice(0, 12).map((category: HomeCategory) => (
-                <Link
-                  key={category.id}
-                  href={`/browse?category=${category.slug}`}
-                  className="p-4 rounded-lg border bg-card hover:border-primary hover:shadow-md transition-all text-center"
-                >
-                  <div className="font-semibold text-sm">{category.name}</div>
-                </Link>
+        {/* ── Free Events ──────────────────────────────── */}
+        {freeEvents.length > 0 && (
+          <section>
+            <SectionHeader
+              title="Free to Attend"
+              viewAllHref="/browse?price_type=free"
+              viewAllLabel="See all free"
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {freeEvents.map((event: HomeEvent) => (
+                <EventCard key={event.id} event={event} />
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Newly Added */}
-        <section className="py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Newly Added</h2>
-            <Link href="/browse?sort=recent">
-              <Button variant="ghost">View All</Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* ── Newly Added ──────────────────────────────── */}
+        <section>
+          <SectionHeader title="Newly Added" viewAllHref="/browse?sort=recent" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {newlyAdded.map((event: HomeEvent) => (
               <EventCard key={event.id} event={event} />
             ))}
+          </div>
+        </section>
+
+        {/* ── CTA Banner ───────────────────────────────── */}
+        <section className="relative overflow-hidden rounded-2xl border border-primary/18 bg-gradient-to-br from-primary/14 via-orange-500/8 to-amber-500/10 px-8 py-12 text-center">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-12 h-52 w-52 rounded-full bg-primary/20 blur-[70px]"
+          />
+          <div className="relative z-10">
+            <p className="section-label mb-3">Are you an organizer?</p>
+            <h3 className="mb-2 text-2xl font-bold">List Your Event for Free</h3>
+            <p className="mx-auto mb-7 max-w-sm text-sm text-muted-foreground">
+              Reach thousands of culture lovers in Dhaka. Submit your event in minutes.
+            </p>
+            <Link href="/organizer">
+              <Button variant="glow" size="lg" className="gap-2">
+                Submit Your Event
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </section>
       </div>
